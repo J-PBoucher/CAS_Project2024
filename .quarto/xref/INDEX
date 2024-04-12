@@ -1,0 +1,41 @@
+{
+  "index.qmd": {
+    "index.html": "053b77bc"
+  },
+  "Theory.qmd": {
+    "Theory.html": "20a22b14"
+  },
+  "intro.qmd": {
+    "intro.html": "d6d18016"
+  },
+  "summary.qmd": {
+    "summary.html": "adbb3db3"
+  },
+  "references.qmd": {
+    "references.html": "a8445b56"
+  },
+  "DataSummary.qmd": {
+    "DataSummary.html": "ce13d56a"
+  },
+  "VarTraditionelles.qmd": {
+    "VarTraditionelles.html": "bf10835a"
+  },
+  "severity.qmd": {
+    "severity.html": "50aa401e"
+  },
+  "severityVarTrad.qmd": {
+    "severityVarTrad.html": "387c7795"
+  },
+  "severityVarTelematique.qmd": {
+    "severityVarTelematique.html": "63b51b72"
+  },
+  "Proposal.qmd": {
+    "Proposal.html": "2fb48845"
+  },
+  "Discussion.qmd": {
+    "Discussion.html": "ef8d49e9"
+  },
+  "VarTelematiques.qmd": {
+    "VarTelematiques.html": "cfac4e26"
+  }
+}

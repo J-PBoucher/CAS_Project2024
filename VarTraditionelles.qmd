@@ -1,0 +1,1717 @@
+# Traditional Covariates
+
+## Preamble
+
+::: {.panel-tabset}
+
+### Chapter Objective
+
+Using only traditional covariates, the objective of this chapter is to propose various statistical models for estimation and variable selection to predict the number of claims. More specifically, the following model families will be examined:  
+
+- Basic GLM,  
+- GLM family, including elastic-net,    
+- XGBoost.  
+
+As mentioned in the theory review chapter, to compare models and strike a balance between bias and variance while avoiding overfitting, an interesting approach is to assess the prediction quality of models when applied to new data. The following R script presents a function for calculating various scores:
+
+```{r, eval=TRUE, cache=TRUE}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+Score.pred <- function(mu, x) {
+  Sc.log  <- -sum(dpois(x, mu, log=TRUE))
+  Sc.MSE  <- sum((x - mu)^2)
+  Sc.quad <- sum(-2*dpois(x,lambda=mu) + sapply(mu, function(x){ sum(dpois(0:10,lambda=x)^2) }))
+  Sc.sph <- sum(- dpois(x,mu) / sqrt(sapply(mu, function(x){ sum(dpois(0:10,lambda=x)^2) })))
+  Sc.DSS <- sum(dss_pois(x, mu))
+  Sc.CRPS <- sum(crps_pois(x, mu))
+    
+  return(c(Sc.log, Sc.MSE, Sc.quad, Sc.sph, Sc.DSS, Sc.CRPS))
+}
+
+
+```
+
+
+
+### Packages
+
+Here is the list of packages that will be used:
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+library(tidyverse)
+library(vtable)
+library(rpart)
+library(repr)
+library(rpart.plot)
+library(rfCountData)
+library(gam)
+library(knitr)
+library(kableExtra)
+library(janitor)
+library(glmnet)
+library(scoringRules)
+library(sjPlot)
+
+```
+
+### Data
+
+The analyses in this chapter will be conducted using the same data as in the previous chapter. However, as we concluded at the end of our overview of the data, a transformation of certain variables is also necessary.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+dataS <- read.csv('Data/Synthetic.csv')
+
+# Modifications 
+dataS <- dataS %>%
+  mutate(Territory = as.factor(Territory)) %>%
+  select(-c('Annual.pct.driven', 'Annual.miles.drive'))
+data.select <- dataS
+
+# Train-test 
+set.seed(123)
+train <- data.select %>% sample_frac(0.8, replace = FALSE)
+test <- data.select %>% anti_join(train)
+
+# Modif data
+train2 <- train %>%
+  mutate(Miles.per.day = Total.miles.driven/Duration,
+         max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+         expo = Duration/365.25)
+
+transform.fct <- function(var){
+  df <- train2 %>% mutate(var_ = get(var)*Total.miles.driven/(1000*Duration))
+  q99 <- quantile(df$var_, 0.99)
+  df <- df %>% mutate(var_ = ifelse(var_ > q99, q99, var_))
+  #colnames(df)[ncol(df)] <- paste0(var, '_')
+  return(df)
+}
+
+train2 <- transform.fct("Brake.06miles")
+train2 <- transform.fct("Brake.08miles")
+train2 <- transform.fct("Brake.09miles")
+train2 <- transform.fct("Brake.11miles")
+train2 <- transform.fct("Brake.14miles")
+train2 <- transform.fct("Accel.06miles")
+train2 <- transform.fct("Accel.08miles")
+train2 <- transform.fct("Accel.09miles")
+train2 <- transform.fct("Accel.11miles")
+train2 <- transform.fct("Accel.12miles")
+train2 <- transform.fct("Accel.14miles")
+train2 <- transform.fct("Left.turn.intensity08")
+train2 <- transform.fct("Left.turn.intensity09")
+train2 <- transform.fct("Left.turn.intensity10")
+train2 <- transform.fct("Left.turn.intensity11")
+train2 <- transform.fct("Left.turn.intensity12")
+train2 <- transform.fct("Right.turn.intensity08")
+train2 <- transform.fct("Right.turn.intensity09")
+train2 <- transform.fct("Right.turn.intensity10")
+train2 <- transform.fct("Right.turn.intensity11")
+train2 <- transform.fct("Right.turn.intensity12")
+
+# Create folds
+nb.fold <- 5
+fold <- sample(1:nb.fold, nrow(train2), replace = TRUE)
+train2$fold <- fold
+
+##
+
+test2 <- test %>%
+  mutate(Miles.per.day = Total.miles.driven/Duration,
+         max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+         expo = Duration/365.25)
+
+transform.fct <- function(var){
+  df <- test2 %>% mutate(var_ = get(var)*Total.miles.driven/(1000*Duration))
+  q99 <- quantile(df$var_, 0.99)
+  df <- df %>% mutate(var_ = ifelse(var_ > q99, q99, var_))
+  #colnames(df)[ncol(df)] <- paste0(var, '_')
+  return(df)
+}
+
+test2 <- transform.fct("Brake.06miles")
+test2 <- transform.fct("Brake.08miles")
+test2 <- transform.fct("Brake.09miles")
+test2 <- transform.fct("Brake.11miles")
+test2 <- transform.fct("Brake.14miles")
+test2 <- transform.fct("Accel.06miles")
+test2 <- transform.fct("Accel.08miles")
+test2 <- transform.fct("Accel.09miles")
+test2 <- transform.fct("Accel.11miles")
+test2 <- transform.fct("Accel.12miles")
+test2 <- transform.fct("Accel.14miles")
+test2 <- transform.fct("Left.turn.intensity08")
+test2 <- transform.fct("Left.turn.intensity09")
+test2 <- transform.fct("Left.turn.intensity10")
+test2 <- transform.fct("Left.turn.intensity11")
+test2 <- transform.fct("Left.turn.intensity12")
+test2 <- transform.fct("Right.turn.intensity08")
+test2 <- transform.fct("Right.turn.intensity09")
+test2 <- transform.fct("Right.turn.intensity10")
+test2 <- transform.fct("Right.turn.intensity11")
+test2 <- transform.fct("Right.turn.intensity12")
+
+```
+
+:::
+
+
+
+## Basic GLM Models
+
+::: {.panel-tabset}
+
+### Single intercept
+
+A baseline model corresponding to a Generalized Linear Model (GLM) with intercept and predicting for each contract only the observed mean multiplied by the exposure is used as a point of comparison.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_base
+#| tbl-cap: Prediction scores for the base model
+
+## Model on each fold
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+    learn <- train2[train2$fold != i,]
+    valid <- train2[train2$fold == i,]
+
+    mean <- sum(learn$NB_Claim)/sum(learn$expo) 
+    learn$pred.base <- mean*learn$expo
+    valid$pred.base <- mean*valid$expo
+
+    Result_ <- rbind(Result_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)/nrow(valid)))
+    Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)))
+}
+
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+
+Result.base <- Result_  
+Base <- Result.base[nb.fold+1,]
+
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+The model is then estimated on the entire training set and predicted on the *test* set, which was not used in parameter calibration.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest
+#| tbl-cap: Prediction scores for the base model (testing set) 
+
+mean <- sum(train2$NB_Claim)/sum(train2$expo) 
+test2$pred.base <- mean*test2$expo
+
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('Base', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+
+Result_all <- Result_
+
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+### Categorical covariates
+
+A first regression approach is attempted using only the traditional categorical variables, namely:    
+
+  - Insured's gender,  
+  - Marital status,  
+  - Vehicle usage,  
+  - Region.
+
+Even though territory should also be considered since it consists of more than fifty different factors, it will not be integrated into the model immediately. As we saw in the overview of variables in a previous section, the insured's gender did not appear to be an important variable for predicting the number of claims. This GLM approach confirms this observation. Therefore, this variable is excluded from the model. In the table below, we can see the impact of adding traditional variables on the prediction quality.
+
+Below are the prediction scores of the model with all categorical covariates. As expected, the addition of segmentation variables improves the prediction scores compared to the simple baseline model with only an intercept.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_GLM1
+#| tbl-cap: Prediction scores for the GLM1 model
+
+## Model 
+score.base <- as.formula(NB_Claim ~ 1 + offset(log(expo)))
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+
+## Model on each fold
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+    learn <- train2[train2$fold != i,]
+    valid <- train2[train2$fold == i,]
+    glm.fit <- glm(score.glm, family = poisson(), data = learn)
+
+    learn$pred.base <- predict(glm.fit, newdata=learn, type='response')
+    valid$pred.base <- predict(glm.fit, newdata=valid, type='response')
+
+    Result_ <- rbind(Result_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)/nrow(valid)))
+    Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)))
+}
+
+## Model on all data from train
+glm.base <- glm(score.base, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+train2$pred.glm1 <- predict(glm.fit, newdata=train2, type='response')
+Result.glm1 <- Result_  
+
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+Result_ <- rbind(Result_, Base)
+
+Result_[nb.fold+2,1] <- 'Improvement'
+
+for(i in 2:7){
+  Result_[nb.fold+2,i] <-  Result_[nb.fold+1,i] - Result_[nb.fold+2,i]
+}
+
+
+rownames(Result_) <- NULL
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+The comparison with the test dataset is also indicated in the table below. It shows that adding traditional variables does not substantially enhance prediction on the test dataset.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest2
+#| tbl-cap: Prediction scores for the GLM model with traditional covariates (testing set) 
+
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+test2$pred.base <- predict(glm.fit, newdata=test2, type='response')
+
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('GLM (trad.)', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+
+Result_all <- rbind(Result_all, Result_)
+
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+### Estimated Parameters
+
+The table below shows the estimators obtained for the GLM-Poisson approach and compares them with the baseline model having only an intercept.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-CoeffGLM
+#| tbl-cap: Estimated parameters for the GLM1 model
+
+## Model 
+score.base <- as.formula(NB_Claim ~ 1 + offset(log(expo)))
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+
+## Model on all data from train
+glm.base <- glm(score.base, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+tab_model(glm.base, glm.fit, transform = NULL)
+
+```
+
+
+:::
+
+
+## GLM-Net
+
+As we saw in the previous chapter, a series of traditional continuous segmentation variables is also available:  
+
+  - Credit score,  
+  - Age of the insured,  
+  - Age of the vehicle,  
+  - Number of claim-free years, 
+  - Furthermore, as we will explain later, the territory will also be treated as a continuous variable.
+
+Directly using a continuous variable in a GLM is usually ineffective as it assumes a linear relationship. To avoid overfitting the data, an approach using splines, utilizing the Generalized Additive Models (GAM) theory, is interesting. This approach allows visualizing the general form of the covariate to explain the number of claims. A parametric form can then be proposed to achieve the best possible correspondence with the spline obtained by the GAM.
+
+Subsequently, instead of attempting to fit a basic GLM model with all variables, we will work with a GLM-net model that allows for variable selection.
+
+### Parametric transformation of continuous covariates
+
+::: {.panel-tabset}
+
+### Credit Score
+
+The first covariate studied is the credit score. We include all categorical variables in the analysis and apply a spline approach with a GAM.  The spline analysis indicates that the following parametric form appears to be appropriate for capturing the relationship between the number of claims:
+
+$$s(Credit.Score) \approx Credit.Score + Credit.Score^2$$
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CS_GAM
+#| fig-cap: "Smoothing of the credit score"
+#| fig-width: 9
+#| fig-height: 4
+
+min_ <- min(train2$Credit.score) 
+max_ <- max(train2$Credit.score) 
+by_ <-  (max_ - min_)/(nrow(train2)-1) 
+add <- data.frame(seq(min_, max_, by_)) 
+colnames(add) <- 'Credit.score'
+
+db <- train2 %>%
+  select(-'Credit.score') %>%
+  slice(1) 
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+
+##
+
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + s(Credit.score) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + Credit.score +  I(Credit.score^2) )
+
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+  mutate(diff = abs(Credit.score - mean(train2$Credit.score))) %>%
+  filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+
+ggplot()+
+  geom_line(aes(x=Credit.score, y=pred.gam, color='GAM'), data=db) + 
+  geom_line(aes(x=Credit.score, y=pred.glm, color='Parametric GLM'), data=db) +
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Credit Score',
+       y = 'Relativity') +
+  theme_classic()
+
+
+
+```
+
+
+### Age of the insured
+
+
+A spline to examine the relationship between the age of the insured and the claim frequency has also been produced. The most appropriate parametric form is as follows:
+
+$$s(Insured.age) \approx Insured.age + \log(Insured.age) + Insured.age^2$$
+
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-IA_GAM
+#| fig-cap: "Smoothing of the age of the insured"
+#| fig-width: 9
+#| fig-height: 4
+
+min_ <- min(train2$Insured.age) 
+max_ <- max(train2$Insured.age) 
+by_ <-  (max_ - min_)/(nrow(train2)-1) 
+add <- data.frame(seq(min_, max_, by_)) 
+colnames(add) <- 'Insured.age'
+
+db <- train2 %>%
+  select(-'Insured.age') %>%
+  slice(1) 
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+
+##
+
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + s(Insured.age) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + Insured.age +  log(Insured.age) + I(Insured.age^2) )
+
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+  mutate(diff = abs(Insured.age - mean(train2$Insured.age))) %>%
+  filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+
+ggplot()+
+  geom_line(aes(x=Insured.age, y=pred.gam, color='GAM'), data=db) + 
+  geom_line(aes(x=Insured.age, y=pred.glm, color='Parametric GLM'), data=db) +
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Age of the insured',
+       y = 'Relativity') +
+  theme_classic()
+
+
+
+```
+
+### Age of the car
+
+The most appropriate parametric form is as follows:
+
+$$s(Car.age) \approx Car.age + Car.age^2$$
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CA_GAM
+#| fig-cap: "Smoothing of the age of the car"
+#| fig-width: 9
+#| fig-height: 4
+
+
+min_ <- min(train2$Car.age) 
+max_ <- max(train2$Car.age) 
+by_ <-  (max_ - min_)/(nrow(train2)-1) 
+add <- data.frame(seq(min_, max_, by_)) 
+colnames(add) <- 'Car.age'
+
+db <- train2 %>%
+  select(-'Car.age') %>%
+  slice(1) 
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+
+##
+
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + s(Car.age) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + Car.age + I(Car.age^2) )
+
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+  mutate(diff = abs(Car.age - mean(train2$Car.age))) %>%
+  filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+
+ggplot()+
+  geom_line(aes(x=Car.age, y=pred.gam, color='GAM'), data=db) + 
+  geom_line(aes(x=Car.age, y=pred.glm, color='Parametric GLM'), data=db) +
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Age of the car',
+       y = 'Relativity') +
+  theme_classic()
+
+
+
+```
+
+
+### Years without claims
+
+Finally, the proposed parametric form for the covariate  indicating the years without claim is:
+
+$$s(Years.noclaims) \approx Years.noclaims + Years.noclaims^2 + Years.noclaims^3$$
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-YNC_GAM
+#| fig-cap: "Smoothing of years without claim"
+#| fig-width: 9
+#| fig-height: 4
+
+
+min_ <- min(train2$Years.noclaims) 
+max_ <- max(train2$Years.noclaims) 
+by_ <-  (max_ - min_)/(nrow(train2)-1) 
+add <- data.frame(seq(min_, max_, by_)) 
+colnames(add) <- 'Years.noclaims'
+
+db <- train2 %>%
+  select(-'Years.noclaims') %>%
+  slice(1) 
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+
+##
+
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + s(Years.noclaims) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) )
+
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+  mutate(diff = abs(Years.noclaims - mean(train2$Years.noclaims))) %>%
+  filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+
+ggplot()+
+  geom_line(aes(x=Years.noclaims, y=pred.gam, color='GAM'), data=db) + 
+  geom_line(aes(x=Years.noclaims, y=pred.glm, color='Parametric GLM'), data=db) +
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Years.noclaims',
+       y = 'Relativity') +
+  theme_classic()
+
+
+
+```
+
+### Territory
+
+As we saw in the previous chapter, the insured's territory code corresponds to a categorical variable with a large cardinality. In such a situation, creating a binary variable for each possible territory is not appropriate. Instead, we propose using target encoding based on the territory's rank.
+
+This means that we first calculate the observed frequency for each territory. Then, we rank the frequencies for the 53 territories in the database. Next, the rank divided by 53 corresponds to the numerical value of the territory. This form is called rank-encoding. We believe that this transformation is justified, considering that ranking territories according to risk is an approach that could be taken in insurance companies.
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 4
+
+
+# Mean Encoding with White Noise pour les territoires
+cardi <- length(unique(train$Territory))
+
+enc.terr <- train2 %>%
+  group_by(Territory) %>%
+  summarize(freq = sum(NB_Claim)/sum(expo)) %>%
+  arrange(freq) %>%
+  mutate(terr.code= row_number()/(cardi+1)) %>%
+  select(Territory, terr.code)
+
+train2 <- train2 %>%
+  group_by(Territory) %>%
+  left_join(enc.terr, by='Territory') %>%
+  ungroup()
+
+test2 <- test2 %>%
+  group_by(Territory) %>%
+  left_join(enc.terr, by='Territory') %>%
+  ungroup()
+
+```
+
+With the encoded form of the territory, as has been done with the other continuous variables, we propose a parametric form for the spline obtained:
+
+$$s(terr.code) \approx terr.code + terr.code^2 + terr.code^3$$
+
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-terrcode_GAM
+#| fig-cap: "Smoothing of the territories (encoded)"
+#| fig-width: 9
+#| fig-height: 4
+
+
+min_ <- min(train2$terr.code) 
+max_ <- max(train2$terr.code) 
+by_ <-  (max_ - min_)/(nrow(train2)-1) 
+add <- data.frame(seq(min_, max_, by_)) 
+colnames(add) <- 'terr.code'
+
+db <- train2 %>%
+  select(-'terr.code') %>%
+  slice(1) 
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+
+##
+
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + s(terr.code) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                        + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+  mutate(diff = abs(terr.code - mean(train2$terr.code))) %>%
+  filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+
+ggplot()+
+  geom_line(aes(x=terr.code, y=pred.gam, color='GAM'), data=db) + 
+  geom_line(aes(x=terr.code, y=pred.glm, color='Parametric GLM'), data=db) +
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'terr.code',
+       y = 'Relativity') +
+  theme_classic()
+
+
+
+```
+
+:::
+
+
+
+### Fitting the GLM-Net model
+
+```{r}
+#| echo: false
+#| eval: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+matrix.x <- model.matrix(glm.score, data=train2)[,-1]
+y <- train2$NB_Claim
+offset <- log(train2$expo)
+fold.id <- train2$fold
+
+lambda_seq <- c(10^seq(0, -8, by = -.1), 0)
+cvfit0  <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 0)
+cvfit.2 <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 0.2)
+cvfit.4 <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 0.4)
+cvfit.6 <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 0.6)
+cvfit.8 <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 0.8)
+cvfit1  <- cv.glmnet(matrix.x, y, relax=FALSE, family = "poisson", offset = offset, lambda = lambda_seq, foldid = fold, alpha = 1)
+
+c(cvfit0$lambda.min, cvfit.2$lambda.min, cvfit.4$lambda.min, cvfit.6$lambda.min, cvfit.8$lambda.min, cvfit1$lambda.min)
+
+all.min <- data.frame(c(min(cvfit0$cvm), min(cvfit.2$cvm), min(cvfit.4$cvm), min(cvfit.6$cvm), min(cvfit.8$cvm), min(cvfit1$cvm))) %>%
+  mutate(alpha = 2*(row_number()-1)/10)
+colnames(all.min)[1] <- 'min' 
+all.min %>% filter(min == min(min))
+
+cvfit1$lambda.min
+cvfit1$lambda.1se
+
+```
+
+::: {.panel-tabset}
+
+### Optimal value
+
+The parameters of the GLM-net were calibrated using cross-validation to obtain the model's hyperparameters. Using these values, we can calculate the prediction scores of the model based on all covariates.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_GLMnet1
+#| tbl-cap: Prediction scores for the GLM-net model (alpha=1)
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+    learn <- train2[train2$fold != i,]
+    valid <- train2[train2$fold == i,]
+    
+    matrix.x <- model.matrix(glm.score, data=learn)[,-1]
+    y <- learn$NB_Claim
+    offset <- log(learn$expo)
+
+    lambda.min <- 0
+    lambda.1se <- 0.006309573
+    
+    lambda.select <- lambda.min
+    fit <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.select)
+    #fit <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.select)
+  
+    matrix.x <- model.matrix(glm.score, data=valid)[,-1]
+    y <- valid$NB_Claim
+    offset <- log(valid$expo)
+
+    valid$pred <- predict(fit, newx = matrix.x, type='response', newoffset=offset, lambda = lambda.select)
+    
+    Result_ <- rbind(Result_, c(i, Score.pred(valid$pred, valid$NB_Claim)/nrow(valid)))
+    Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred, valid$NB_Claim)))
+}
+
+
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+Result_ <- rbind(Result_, Base)
+
+Result_[nb.fold+2,1] <- 'Improvement'
+
+for(i in 2:7){
+  Result_[nb.fold+2,i] <-  Result_[nb.fold+1,i] - Result_[nb.fold+2,i]
+}
+
+
+rownames(Result_) <- NULL
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+On the test dataset, we obtain:
+
+```{r}
+#| echo: true
+#| cache: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest3
+#| tbl-cap: Prediction scores for the GLM-net model  (testing set) 
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+matrix.x <- model.matrix(glm.score, data=train2)[,-1]
+y <- train2$NB_Claim
+offset <- log(train2$expo)
+
+lambda.min <- 0
+lambda.1se <- 0.006309573
+    
+lambda.select <- lambda.min
+fit <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.select)
+#fit <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.select)
+  
+matrix.x <- model.matrix(glm.score, data=test2)[,-1]
+y <- test2$NB_Claim
+offset <- log(test2$expo)
+
+test2$pred.base <- predict(fit, newx = matrix.x, type='response', newoffset=offset, lambda = lambda.select)
+
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('LASSO (optimal)', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+
+Result_all <- rbind(Result_all, Result_)
+
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+
+
+```
+
+
+
+### Parsimonious model
+
+Instead of using the optimal value of the penalty $\lambda$  in the elastic-net approach, it is often advised to use a penalty value located at one standard error ($\lambda_{1se}$). This helps to obtain a more parsimonious model. The prediction scores of such a model are displayed below.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_GLMnet2
+#| tbl-cap: Prediction scores for the GLM-net model (alpha=1)
+
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+    learn <- train2[train2$fold != i,]
+    valid <- train2[train2$fold == i,]
+    
+    matrix.x <- model.matrix(glm.score, data=learn)[,-1]
+    y <- learn$NB_Claim
+    offset <- log(learn$expo)
+
+    lambda.min <- 0
+    lambda.1se <- 0.006309573
+    
+    lambda.select <- lambda.1se
+    #fit <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.select)
+    fit <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.select)
+  
+    matrix.x <- model.matrix(glm.score, data=valid)[,-1]
+    y <- valid$NB_Claim
+    offset <- log(valid$expo)
+
+    valid$pred <- predict(fit, newx = matrix.x, type='response', newoffset=offset, lambda = lambda.select)
+    
+    Result_ <- rbind(Result_, c(i, Score.pred(valid$pred, valid$NB_Claim)/nrow(valid)))
+    Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred, valid$NB_Claim)))
+}
+
+
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+Result_ <- rbind(Result_, Base)
+
+Result_[nb.fold+2,1] <- 'Improvement'
+
+for(i in 2:7){
+  Result_[nb.fold+2,i] <-  Result_[nb.fold+1,i] - Result_[nb.fold+2,i]
+}
+
+
+rownames(Result_) <- NULL
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+
+```
+
+On the test dataset, we obtain:
+
+```{r}
+#| echo: true
+#| cache: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest3bb
+#| tbl-cap: Prediction scores for the GLM-net model  (testing set) 
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+matrix.x <- model.matrix(glm.score, data=train2)[,-1]
+y <- train2$NB_Claim
+offset <- log(train2$expo)
+
+lambda.min <- 0
+lambda.1se <- 0.006309573
+    
+lambda.select <- lambda.1se
+#fit <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.select)
+fit <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.select)
+  
+matrix.x <- model.matrix(glm.score, data=test2)[,-1]
+y <- test2$NB_Claim
+offset <- log(test2$expo)
+
+test2$pred.base <- predict(fit, newx = matrix.x, type='response', newoffset=offset, lambda = lambda.select)
+
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('LASSO (parsimonious)', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+
+Result_all <- rbind(Result_all, Result_)
+
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+
+
+```
+
+
+### Categorical covariates
+
+For categorical variables, the relativity values obtained for both GLM-net approaches are displayed below.
+
+```{r}
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| label: fig-GLMnetcat
+#| fig-cap: "Interpretation of the categorical variables from the GLM-net model"
+#| fig-subcap: 
+#|   - "Sex of the insured"
+#|   - "Marital status of the insured"
+#|   - "Car use"
+#|   - "Region"
+
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+matrix.x <- model.matrix(glm.score, data=train2)[,-1]
+y <- train2$NB_Claim
+offset <- log(train2$expo)
+    
+lambda.min <- 0
+lambda.1se <- 0.006309573
+
+lasso.min <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.min)
+lasso.1se <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.1se)
+#cbind(coef(lasso.min),coef(lasso.1se))
+
+### Insured.sex ###
+Female.min <- 1
+Female.1se <- 1
+Male.min <- exp(coef(lasso.min)[2])
+Male.1se <- exp(coef(lasso.1se)[2])
+
+df <- data.frame( Sex = c('Female', 'Male'), 
+                  Relativity = c(Female.min, Male.min) ) 
+df2 <- data.frame( Sex = c('Female', 'Male'), 
+                  Relativity = c(Female.1se, Male.1se) ) 
+ggplot() + 
+  geom_line(aes(x=as.factor(Sex), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_point(aes(x=as.factor(Sex), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_line(aes(x=as.factor(Sex), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  geom_point(aes(x=as.factor(Sex), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  labs(x = 'Sex of the insured',
+       y = 'Relativity') +
+  ylim(0, 1.2*max(df$Relativity))+
+  guides(color = guide_legend(title = "")) +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### Marital ###
+Single.min <- 1
+Single.1se <- 1
+Married.min <- exp(coef(lasso.min)[3])
+Married.1se <- exp(coef(lasso.1se)[3])
+
+df <- data.frame( Marital = c('Married', 'Single'), 
+                  Relativity = c(Single.min, Married.min) ) 
+df2 <- data.frame( Marital = c('Married', 'Single'), 
+                  Relativity = c(Single.1se, Married.1se) ) 
+ggplot() + 
+  geom_line(aes(x=as.factor(Marital), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_point(aes(x=as.factor(Marital), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_line(aes(x=as.factor(Marital), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  geom_point(aes(x=as.factor(Marital), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  labs(x = 'Marital status of the insured',
+       y = 'Relativity') +
+  ylim(0, 1.2*max(df$Relativity))+
+  guides(color = guide_legend(title = "")) +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### Car Use ###
+Commercial.min <- 1
+Commute.min <- exp(coef(lasso.min)[4])
+Farmer.min <- exp(coef(lasso.min)[5])
+Private.min <- exp(coef(lasso.min)[6])
+
+Commercial.1se <- 1
+Commute.1se <- exp(coef(lasso.1se)[4])
+Farmer.1se <- exp(coef(lasso.1se)[5])
+Private.1se <- exp(coef(lasso.1se)[6])
+
+df <- data.frame( Car.use = c('Commercial', 'Commute', 'Farmer', 'Private'), 
+                  Relativity = c(Commercial.min, Commute.min, Farmer.min, Private.min) ) 
+df2 <- data.frame( Car.use = c('Commercial', 'Commute', 'Farmer', 'Private'), 
+                  Relativity = c(Commercial.1se, Commute.1se, Farmer.1se, Private.1se) ) 
+ggplot() + 
+  geom_line(aes(x=as.factor(Car.use), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+ 
+  geom_point(aes(x=as.factor(Car.use), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_line(aes(x=as.factor(Car.use), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+ 
+  geom_point(aes(x=as.factor(Car.use), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  labs(x = 'Use of the car',
+       y = 'Relativity') +
+  ylim(0, 1.2*max(df$Relativity))+
+  guides(color = guide_legend(title = "")) +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+
+### Region ###
+Rural.min <- 1
+Rural.1se <- 1
+Urban.min <- exp(coef(lasso.min)[7])
+Urban.1se <- exp(coef(lasso.1se)[7])
+
+df <- data.frame( Region = c('Rural', 'Urban'), 
+                  Relativity = c(Rural.min, Urban.min) ) 
+df2 <- data.frame( Region = c('Rural', 'Urban'), 
+                  Relativity = c(Rural.1se, Urban.1se) ) 
+ggplot() + 
+  geom_line(aes(x=as.factor(Region), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_point(aes(x=as.factor(Region), y=Relativity, group=1, color='lambda.min'), stat='identity', data=df)+
+  geom_line(aes(x=as.factor(Region), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  geom_point(aes(x=as.factor(Region), y=Relativity, group=1, color='lambda.1se'), stat='identity', data=df2)+
+  labs(x = 'Region',
+       y = 'Relativity') +
+  ylim(0, 1.2*max(df$Relativity))+
+  guides(color = guide_legend(title = "")) +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+
+
+```
+
+
+### Continuous covariates
+
+As with categorical variables, the relativities obtained are illustrated below for continuous variables. It can be observed that the parsimonious approach tends to reduce the impact of segmentation variables on the premium.
+
+
+```{r}
+#| echo: true
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 3
+#| label: fig-GLMnet
+#| fig-cap: "Interpretation of the continuous variables from the GLM-net model:"
+#| fig-subcap: 
+#|   - "Credit Score"
+#|   - "Age of the insured"
+#|   - "Age of the car"
+#|   - "Years without claim"
+#|   - "Territory Code"
+
+glm.score <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
+                                  + Credit.score +  I(Credit.score^2) 
+                                  + Insured.age +  log(Insured.age) + I(Insured.age^2) 
+                                  + Car.age + I(Car.age^2) 
+                                  + Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) 
+                                  + terr.code + I(terr.code^2)  + I(terr.code^3) )
+
+matrix.x <- model.matrix(glm.score, data=train2)[,-1]
+y <- train2$NB_Claim
+offset <- log(train2$expo)
+
+lambda.min <- 0
+lambda.1se <- 0.006309573
+
+lasso.min <- glmnet(matrix.x, y, family = "poisson", relax=FALSE, offset = offset, alpha = 1, lambda = lambda.min)
+lasso.1se <- glmnet(matrix.x, y, family = "poisson", relax=TRUE, offset = offset, alpha = 1, lambda = lambda.1se)
+#cbind(coef(lasso.min), coef(lasso.1se))
+
+### Credit Score ###
+Credit.score <- seq(from=min(train2$Credit.score), to=max(train2$Credit.score), by=1)
+
+beta <- coef(lasso.1se)[8:9]
+curve1 <- exp(beta[1]*Credit.score + beta[2]*Credit.score^2) 
+base1 <- exp(beta[1]*mean(train2$Credit.score) + beta[2]*mean(train2$Credit.score)^2) 
+
+beta <- coef(lasso.min)[8:9]
+curve2 <- exp(beta[1]*Credit.score + beta[2]*Credit.score^2) 
+base2 <- exp(beta[1]*mean(train2$Credit.score) + beta[2]*mean(train2$Credit.score)^2) 
+
+curve1 <- curve1/base1
+curve2 <- curve2/base2
+db <- data.frame(cbind(Credit.score, curve1, curve2))
+
+ggplot()+
+  geom_line(aes(x=Credit.score, y=curve1, color = 'lambda.1se' ), data=db)+
+  geom_line(aes(x=Credit.score, y=curve2, color = 'lambda.min' ), data=db)+
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Credit Score',
+       y = 'Relativity') +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### Insured.age 
+Insured.age <- seq(from=min(train2$Insured.age ), to=max(train2$Insured.age ), by=1)
+beta <- coef(lasso.1se)[10:12]
+curve1 <- exp(beta[1]*Insured.age  + beta[2]*log(Insured.age ) + beta[3]*Insured.age^2)       
+base1  <- exp(beta[1]*mean(train2$Insured.age) + beta[2]*log(mean(train2$Insured.age)) + beta[3]*mean(train2$Insured.age)^2) 
+
+beta <- coef(lasso.min)[10:12]
+curve2 <- exp(beta[1]*Insured.age  + beta[2]*log(Insured.age ) + beta[3]*Insured.age^2)       
+base2  <- exp(beta[1]*mean(train2$Insured.age) + beta[2]*log(mean(train2$Insured.age)) + beta[3]*mean(train2$Insured.age)^2) 
+
+curve1 <- curve1/base1
+curve2 <- curve2/base2
+db <- data.frame(cbind(Insured.age, curve1, curve2))
+
+ggplot()+
+  geom_line(aes(x=Insured.age, y=curve1, color = 'lambda.1se' ), data=db)+
+  geom_line(aes(x=Insured.age, y=curve2, color = 'lambda.min' ), data=db)+
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Age of the insured',
+       y = 'Relativity') +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### Car Age ###
+Car.age <- seq(from=min(train2$Car.age), to=max(train2$Car.age), by=1)
+beta <- coef(lasso.1se)[13:14]
+curve1 <- exp(beta[1]*Car.age + beta[2]*Car.age^2)
+base1  <- exp(beta[1]*mean(train2$Car.age) + beta[2]*mean(train2$Car.age)^2) 
+
+beta <- coef(lasso.min)[13:14]
+curve2 <- exp(beta[1]*Car.age + beta[2]*Car.age^2)
+base2  <- exp(beta[1]*mean(train2$Car.age) + beta[2]*mean(train2$Car.age)^2) 
+
+curve1 <- curve1/base1
+curve2 <- curve2/base2
+db <- data.frame(cbind(Car.age, curve1, curve2))
+
+ggplot()+
+  geom_line(aes(x=Car.age, y=curve1, color = 'lambda.1se' ), data=db)+
+  geom_line(aes(x=Car.age, y=curve2, color = 'lambda.min' ), data=db)+
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Age of the car',
+       y = 'Relativity') +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### Years.noclaims 
+Years.noclaims <- seq(from=min(train2$Years.noclaims ), to=max(train2$Years.noclaims ), by=1)
+beta <- coef(lasso.1se)[15:17]
+curve1 <- exp(beta[1]*Years.noclaims  + beta[2]*Years.noclaims^2 + beta[3]*Years.noclaims ^3)        
+base1  <- exp(beta[1]*mean(train2$Years.noclaims) + beta[2]*mean(train2$Years.noclaims)^2 + beta[3]*mean(train2$Years.noclaims)^3) 
+
+beta <- coef(lasso.min)[15:17]
+curve2 <- exp(beta[1]*Years.noclaims  + beta[2]*Years.noclaims^2 + beta[3]*Years.noclaims ^3)        
+base2  <- exp(beta[1]*mean(train2$Years.noclaims) + beta[2]*mean(train2$Years.noclaims)^2 + beta[3]*mean(train2$Years.noclaims)^3) 
+
+curve1 <- curve1/base1
+curve2 <- curve2/base2
+db <- data.frame(cbind(Years.noclaims, curve1, curve2))
+
+ggplot()+
+  geom_line(aes(x=Years.noclaims, y=curve1, color = 'lambda.1se' ), data=db)+
+  geom_line(aes(x=Years.noclaims, y=curve2, color = 'lambda.min' ), data=db)+
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Years without claim',
+       y = 'Relativity') +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+### terr.code  
+terr.code  <- seq(from=min(train2$terr.code  ), to=max(train2$terr.code  ), by=0.01)
+beta <- coef(lasso.1se)[18:20]
+curve1 <- exp(beta[1]*terr.code + beta[2]*terr.code^2 + beta[3]*terr.code^3)
+base1  <- exp(beta[1]*mean(train2$terr.code) + beta[2]*mean(train2$terr.code)^2 + beta[3]*mean(train2$terr.code)^3)
+
+beta <- coef(lasso.min)[18:20]
+curve2 <- exp(beta[1]*terr.code + beta[2]*terr.code^2 + beta[3]*terr.code^3)
+base2  <- exp(beta[1]*mean(train2$terr.code) + beta[2]*mean(train2$terr.code)^2 + beta[3]*mean(train2$terr.code)^3)
+
+curve1 <- curve1/base1
+curve2 <- curve2/base2
+db <- data.frame(cbind(terr.code, curve1, curve2))
+
+ggplot()+
+  geom_line(aes(x=terr.code, y=curve1, color = 'lambda.1se' ), data=db)+
+  geom_line(aes(x=terr.code, y=curve2, color = 'lambda.min' ), data=db)+
+  guides(color = guide_legend(title = "")) +
+  labs(x = 'Territory (encoded)',
+       y = 'Relativity') +
+      theme_classic()+    theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+
+```
+
+:::
+
+
+## XGBoost
+
+```{r}
+#| echo: false
+#| eval: false
+#| message: FALSE
+#| warning: FALSE
+
+trad.vars <- c("Marital", "Car.use", "Region", "Insured.sex", "Credit.score", "Insured.age", "Car.age", "Years.noclaims", "Territory") 
+
+dtrain <- xgb.DMatrix(data = data.matrix(train2[, paste(trad.vars)]), label = train2$NB_Claim)
+setinfo(dtrain,"base_margin",log(train2$expo))
+folds <-list(fold1 = which(train2$fold == 1),
+             fold2 = which(train2$fold == 2),
+             fold3 = which(train2$fold == 3),
+             fold4 = which(train2$fold == 4),
+             fold5 = which(train2$fold == 5))
+
+bounds <- list(eta = c(0.001, 0.5),
+               max_depth = c(1L, 50L),
+               subsample = c(0.1, 1),
+               min_child_weight = c(1, 175))
+
+obj_func <- function(eta, max_depth, subsample, min_child_weight) {
+  param <- list(
+    eta = eta,
+    max_depth = max_depth,
+    subsample = subsample,
+    #min_child_weight = min_child_weight,
+    booster = "gbtree",
+    objective = "count:poisson",
+    eval_metric = "poisson-nloglik")
+  
+  set.seed(333)
+  xgbcv <- xgb.cv(params = param,
+                  nrounds = base.rounds,
+                  data = dtrain,
+                  folds = folds,
+                  prediction = TRUE,
+                  early_stopping_rounds = 10,
+                  verbose = 0,
+                  maximize = F)
+  
+  lst <- list(
+    Score = -min(xgbcv$evaluation_log$test_poisson_nloglik_mean),
+    nrounds = xgbcv$best_iteration
+  )
+  
+  return(lst)
+}
+
+base.rounds <- 200
+set.seed(1234)
+bayes_out <- bayesOpt(FUN = obj_func, bounds = bounds, initPoints = length(bounds) + 2, iters.n = 3)
+comp <- bayes_out$scoreSummary[which(bayes_out$scoreSummary$Score== max(bayes_out$scoreSummary$Score))]
+comp 
+
+############
+## Verif ###
+############
+obj_func(eta=comp$eta, max_depth=comp$max_depth, subsample=comp$subsample, min_child_weight=comp$min_child_weight)
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(333)
+xgbcv <- xgb.cv(params = param,
+                nrounds = 96,
+                data = dtrain,
+                folds = folds,
+                prediction = TRUE,
+                early_stopping_rounds = 10,
+                verbose = 0,
+                maximize = F)
+
+-min(xgbcv$evaluation_log$test_poisson_nloglik_mean)
+
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  min_child_weight = 1,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(333)
+xgbcv <- xgb.cv(params = param,
+                nrounds = 96,
+                data = dtrain,
+                folds = folds,
+                prediction = TRUE,
+                early_stopping_rounds = 10,
+                verbose = 0,
+                maximize = F)
+
+-min(xgbcv$evaluation_log$test_poisson_nloglik_mean)
+
+```
+
+
+
+```{r}
+#| echo: false
+#| eval: false
+#| message: FALSE
+#| warning: FALSE
+
+trad.vars <- c("Marital", "Car.use", "Region", "Insured.sex", "Credit.score", "Insured.age", "Car.age", "Years.noclaims", "Territory") 
+
+dtrain <- xgb.DMatrix(data = data.matrix(train2[, paste(trad.vars)]), label = train2$NB_Claim)
+setinfo(dtrain,"base_margin",log(train2$expo))
+folds <-list(fold1 = which(train2$fold == 1),
+             fold2 = which(train2$fold == 2),
+             fold3 = which(train2$fold == 3),
+             fold4 = which(train2$fold == 4),
+             fold5 = which(train2$fold == 5))
+
+bounds <- list(eta = c(0.08, 0.1),
+               max_depth = c(40L, 50L),
+               subsample = c(0.8, 1),
+               min_child_weight = c(1, 175))
+
+obj_func <- function(eta, max_depth, subsample, min_child_weight) {
+  param <- list(
+    eta = eta,
+    max_depth = max_depth,
+    subsample = subsample,
+    min_child_weight = min_child_weight,
+    booster = "gbtree",
+    objective = "count:poisson",
+    eval_metric = "poisson-nloglik")
+  
+  set.seed(233)
+  xgbcv <- xgb.cv(params = param,
+                  nrounds = base.rounds,
+                  data = dtrain,
+                  folds = folds,
+                  prediction = TRUE,
+                  early_stopping_rounds = 10,
+                  verbose = 0,
+                  maximize = F)
+  
+  lst <- list(
+    Score = -min(xgbcv$evaluation_log$test_poisson_nloglik_mean),
+    nrounds = xgbcv$best_iteration
+  )
+  
+  return(lst)
+}
+
+base.rounds <- 200
+set.seed(1234)
+bayes_out <- bayesOpt(FUN = obj_func, bounds = bounds, initPoints = length(bounds) + 2, iters.n = 5)
+comp <- bayes_out$scoreSummary[which(bayes_out$scoreSummary$Score== max(bayes_out$scoreSummary$Score))]
+comp 
+
+############
+## Verif ###
+############
+obj_func(eta=comp$eta, max_depth=comp$max_depth, subsample=comp$subsample, min_child_weight=comp$min_child_weight)
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  min_child_weight = min_child_weight,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(233)
+xgbcv <- xgb.cv(params = param,
+                nrounds = 96,
+                data = dtrain,
+                folds = folds,
+                prediction = TRUE,
+                early_stopping_rounds = 10,
+                verbose = 0,
+                maximize = F)
+
+-min(xgbcv$evaluation_log$test_poisson_nloglik_mean)
+
+
+```
+
+Another approach to consider is XGBoost. However, through cross-validation, this method requires finely tuning its hyperparameters to be effective. We utilized a grid search approach coupled with Bayesian optimization for the dataset used in the project.
+
+::: {.panel-tabset}
+
+### Prediction Scores
+
+With the hyperparameters we discovered, we can compute the model's prediction scores. The scores obtained show a significant improvement compared to other tested approaches.
+
+```{r}
+#| echo: true
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| output: false
+#| code-fold: true
+
+library(xgboost)
+library(Ckmeans.1d.dp)
+library(SHAPforxgboost)
+
+trad.vars <- c("Marital", "Car.use", "Region", "Insured.sex", "Credit.score", "Insured.age", "Car.age", "Years.noclaims", "Territory") 
+
+dtrain <- xgb.DMatrix(data = data.matrix(train2[, paste(trad.vars)]), label = train2$NB_Claim)
+setinfo(dtrain,"base_margin",log(train2$expo))
+folds <-list(fold1 = which(train2$fold == 1),
+             fold2 = which(train2$fold == 2),
+             fold3 = which(train2$fold == 3),
+             fold4 = which(train2$fold == 4),
+             fold5 = which(train2$fold == 5))
+
+```
+
+
+```{r}
+#| echo: true
+#| cache: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_XGBoost
+#| tbl-cap: Prediction scores for the XGBoost model
+
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  min_child_weight = 1,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(333)
+xgbcv <- xgb.cv(params = param,
+                nrounds = 96,
+                data = dtrain,
+                folds = folds,
+                prediction = TRUE,
+                early_stopping_rounds = 10,
+                verbose = 0,
+                maximize = F)
+  
+Sc.log <- sapply(xgbcv$folds, function(x){-dpois(train2$NB_Claim[x], unlist(xgbcv$pred[x]), log=TRUE)})
+Sc.MSE <- sapply(xgbcv$folds, function(x){(train2$NB_Claim[x]-unlist(xgbcv$pred[x]))^2})
+Sc.quad <- sapply(xgbcv$folds, function(x){
+  nb <- train2$NB_Claim[x]
+  mu <- unlist(xgbcv$pred[x])
+  -2*dpois(nb,lambda=mu) + dpois(0,lambda=mu)^2 + dpois(1,lambda=mu)^2 + dpois(2,lambda=mu)^2+ dpois(3,lambda=mu)^2 + dpois(4,lambda=mu)^2 + dpois(5,lambda=mu)^2 
+})  
+Sc.sph <- sapply(xgbcv$folds, function(x){
+  nb <- train2$NB_Claim[x]
+  mu <- unlist(xgbcv$pred[x])
+  -dpois(nb,lambda=mu) / sqrt(dpois(0,lambda=mu)^2 + dpois(1,lambda=mu)^2 + dpois(2,lambda=mu)^2+ dpois(3,lambda=mu)^2 + dpois(4,lambda=mu)^2 + dpois(5,lambda=mu)^2 ) 
+})
+Sc.DSS <- sapply(xgbcv$folds, function(x){dss_pois(train2$NB_Claim[x], unlist(xgbcv$pred[x]))})
+Sc.CRPS <- sapply(xgbcv$folds, function(x){crps_pois(train2$NB_Claim[x], unlist(xgbcv$pred[x]))})
+
+Result_  <- rbind(
+c(1,mean(Sc.log[1]$fold1), mean(Sc.MSE[1]$fold1), mean(Sc.quad[1]$fold1), mean(Sc.sph[1]$fold1), mean(Sc.DSS[1]$fold1), mean(Sc.CRPS[1]$fold1)),
+c(2,mean(Sc.log[2]$fold2), mean(Sc.MSE[2]$fold2), mean(Sc.quad[2]$fold2), mean(Sc.sph[2]$fold2), mean(Sc.DSS[2]$fold2), mean(Sc.CRPS[2]$fold2)),
+c(3,mean(Sc.log[3]$fold3), mean(Sc.MSE[3]$fold3), mean(Sc.quad[3]$fold3), mean(Sc.sph[3]$fold3), mean(Sc.DSS[3]$fold3), mean(Sc.CRPS[3]$fold3)),
+c(4,mean(Sc.log[4]$fold4), mean(Sc.MSE[4]$fold4), mean(Sc.quad[4]$fold4), mean(Sc.sph[4]$fold4), mean(Sc.DSS[4]$fold4), mean(Sc.CRPS[4]$fold4)),
+c(5,mean(Sc.log[5]$fold5), mean(Sc.MSE[5]$fold5), mean(Sc.quad[5]$fold5), mean(Sc.sph[5]$fold5), mean(Sc.DSS[5]$fold5), mean(Sc.CRPS[5]$fold5))
+)
+
+Res.sum  <- rbind(
+c(sum(Sc.log[1]$fold1), sum(Sc.MSE[1]$fold1), sum(Sc.quad[1]$fold1), sum(Sc.sph[1]$fold1), sum(Sc.DSS[1]$fold1), sum(Sc.CRPS[1]$fold1)),
+c(sum(Sc.log[2]$fold2), sum(Sc.MSE[2]$fold2), sum(Sc.quad[2]$fold2), sum(Sc.sph[2]$fold2), sum(Sc.DSS[2]$fold2), sum(Sc.CRPS[2]$fold2)),
+c(sum(Sc.log[3]$fold3), sum(Sc.MSE[3]$fold3), sum(Sc.quad[3]$fold3), sum(Sc.sph[3]$fold3), sum(Sc.DSS[3]$fold3), sum(Sc.CRPS[3]$fold3)),
+c(sum(Sc.log[4]$fold4), sum(Sc.MSE[4]$fold4), sum(Sc.quad[4]$fold4), sum(Sc.sph[4]$fold4), sum(Sc.DSS[4]$fold4), sum(Sc.CRPS[4]$fold4)),
+c(sum(Sc.log[5]$fold5), sum(Sc.MSE[5]$fold5), sum(Sc.quad[5]$fold5), sum(Sc.sph[5]$fold5), sum(Sc.DSS[5]$fold5), sum(Sc.CRPS[5]$fold5))
+)
+sum <- c('Total', colSums(Res.sum)/nrow(train2))
+
+Result_  <- data.frame(rbind(Result_, sum)) 
+
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+Result_ <- rbind(Result_, Base)
+
+Result_[nb.fold+2,1] <- 'Improvement'
+
+for(i in 2:7){
+  Result_[,i] <- as.numeric(Result_[,i])  
+  Result_[nb.fold+2,i] <-  Result_[nb.fold+1,i] - Result_[nb.fold+2,i]
+}
+
+rownames(Result_) <- NULL
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+```
+
+We can use the same model to compute scores on the *test* set. Furthermore, it's evident that the XGBoost approach is the most effective.
+
+```{r}
+#| echo: true
+#| cache: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| output: false
+
+dtrain <- xgb.DMatrix(data = data.matrix(train2[, paste(trad.vars)]), label = train2$NB_Claim)
+setinfo(dtrain,"base_margin",log(train2$expo))
+folds <-list(fold1 = which(train2$fold == 1),
+             fold2 = which(train2$fold == 2),
+             fold3 = which(train2$fold == 3),
+             fold4 = which(train2$fold == 4),
+             fold5 = which(train2$fold == 5))
+dtest <- xgb.DMatrix(data = data.matrix(test2[, paste(trad.vars)]), label = test2$NB_Claim)
+setinfo(dtest,"base_margin",log(test2$expo))
+```
+
+```{r}
+#| echo: true
+#| cache: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_XGBoost_correction333
+#| tbl-cap: Prediction scores for the XGBoost model with traditional covariates
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  min_child_weight = 1,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(333)
+fit.xgb <- xgb.train(params = param,
+                     nrounds = 96,
+                     data = dtrain)
+
+train2$pred.xgb <- predict(fit.xgb, dtrain, type='response')
+test2$pred.xgb <- predict(fit.xgb, dtest, type='response')
+
+test2$pred.base <- test2$pred.xgb
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('XGBoost', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+
+Result_all <- rbind(Result_all, Result_)
+
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%   
+  kable_styling(bootstrap_options = "striped", full_width = T)  
+
+
+```
+
+### Variables Importance
+
+A challenge associated with the XGBoost approach is comprehending the full impact of each segmentation variable. The following graph depicts the most crucial variables in the XGBoost model. We observe that the credit score, the territory, the age of the insured, and the years without claim are the most significant covariates in the XGBoost model.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+param <- list(
+  eta = 0.08846194,
+  max_depth = 43,
+  subsample = 0.8389601,
+  min_child_weight = 1,
+  booster = "gbtree",
+  objective = "count:poisson",
+  eval_metric = "poisson-nloglik")
+
+set.seed(333)
+fit.xgb <- xgb.train(params = param,
+                     nrounds = 96,
+                     data = dtrain)
+
+importance_matrix <- xgb.importance(dimnames(dtrain)[[2]], model = fit.xgb)
+xgb.ggplot.importance(importance_matrix,top_n=10) + theme(text = element_text(size=15))
+
+
+```
+
+
+:::
+
+

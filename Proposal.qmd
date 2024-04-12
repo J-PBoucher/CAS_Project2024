@@ -1,0 +1,102 @@
+# Initial Proposal {.unnumbered}
+
+# Introduction 
+
+::: {.justify}
+
+The insurance industry often bases its decisions on statistical models, which, in a nutshell, must determine whether an insured person is risky or not. Therefore, carefully discriminating between risks is a question to establish the fairest possible premium. However, this practice may contravene principles prohibiting discrimination for sensitive variables such as age, gender, marital status, and ethnicity. Thus, the line between a *fair* actuarial classification and an *unfair* discrimination is thin and must be studied carefully.
+
+To illustrate the delicate nature of some variables, we can, for example, refer to the practice of redlining in the United States to show the racial bias in such segmentation. Redlining consisted more precisely of delimiting residential neighborhoods according to their level of desirability by assigning them a color (green, blue, yellow, or red). The Federal Housing Administration (FHA) used this approach to determine eligibility to obtain insurance on a residence's mortgage [@chibanda2022defining]. This approach was subsequently criticized for discriminating against ethnicity since the neighborhoods identified as the least desirable were mainly those where minorities resided. Redlining became illegal under the Fair Housing Act in 1968.
+
+The use of the gender variable in pricing is also problematic regarding fairness. In 1985, Montana was the first state in the United States to ban its use in the insurance industry following the efforts of feminist groups in the fight for unisex pricing [@reid]. All insurance coverage now has a segmentation that omits the use of gender. Several states, such as California, Hawaii, Massachusetts, and Michigan, have followed this initiative by excluding this variable in calculating automobile insurance premiums. The European Union also banned the use of gender in the estimation of premiums in 2012, and the calculation is now done through variables directly linked to the insured's driving, such as the brand of the car and the mileage traveled [@litch]. Because of these changes, several players in the insurance industry, i.e., companies, regulators, and the scientific community, are developing new methodologies, making it possible to include the notion of fairness in models without sacrificing the quality of the latter (see, for example, [@lindholm2022discrimination] and [@embrechts2022recent]).
+
+Usage-based insurance (UBI), in which the insured’s premium is estimated by making use of their driving data recorded by an on-board diagnostics (OBD) device (or a smartphone application), has become highly popular in the last decade. Traditionally, automobile insurers have relied mainly upon static attributes related to the vehicle or the insured, which are indirectly related to accident risk. With the rise of telematics technology, it is now feasible for insurers to offer a more customized premium that is more in line with an insured’s risk, which may now be determined by considering the insured’s volume, habits, and style of driving. UBI, or pricing using telematics data, seems likely to be the future standard in automobile insurance, and the market share of UBI
+products is currently growing quickly. One piece of GPS-collected information that is directly related to the risk insured is distance driven. The relevance of including this variable in ratemaking has been studied by [@ayuso2014time], [@ayuso2016using], [@boucher2013pay] and [@LEM16] among others.
+
+The proposed research project combines the recent research interests of Professors Boucher and Pigeon. Indeed, as we can see in the *Qualifications of the Research Team section* below, modeling and pricing in automobile insurance with telematic devices and using fair pricing algorithms in property and casualty insurance are areas of expertise for the two professors.  The objective of the project will thus be to see how a driver's telematic information makes it possible to reduce the importance given to sensitive covariates such as the age and the gender of the insured. Although we do not have on hand the information of the insured concerning his credit score (illegal use for automobile pricing in Ontario), his ethnicity, or his religion, the proposed research project will analyze the importance of the territory residence of the insured as a segmentation variable, information often seen as a sensitive covariate in insurance segmentation.
+
+:::
+
+# Outline of the Work
+
+## Main Objectives 
+
+::: {.justify}
+
+Our main objective is to combine and extend the models developed in [@oueini] by including the most critical telematics variables identified in the series of papers by [@duval1], [@DUV23] and [@duval3]. More specifically:
+
+1) we plan to precisely and adequately describe, to North American actuaries, the problem of insurance pricing with unjustified discrimination by using real insurance data;  
+
+2) we plan to show, for different coverages (collision, comprehensive, accident benefits, etc.), the impact  of the introduction of telematics data into automobile insurance pricing algorithms by checking if the additional telematic information reduces the importance given to classic segmentation variables, such as age, gender, or territory;  
+
+3) we plan to develop new penalty metrics to measure the level of fairness in a pricing model by first giving an overview of available algorithms penalizing unjustified segmentation.
+
+:::
+
+## Proposed Approach
+
+::: {.justify}
+
+### Telematic Data {-}
+
+A portion of the project can be seen as a generalization of the approaches of [@duval1] and [@DUV23], where the claims frequency and the claims severity will both be analyzed with telematics data. We will carry out a combination of telematics information with classic segmentation variables for these models. In order to obtain results that can easily be understood and interpreted, we will perform the selection of variables using the algorithms used in [@duval1] and [@DUV23], namely the Elastic-net regularization  that can be seen as a compromise between Ridge and lasso penalties (see [@zou2003regression]).  
+
+In connection with the conclusions obtained in these papers and those obtained by [@boucher2020longitudinal], we will give particular importance to the distance traveled by each vehicle for protections linked to at-fault and non-fault accidents. Although maximum speed, average speed, or distracted driving are information that could make it possible to quantify the risk of accidents properly, several scientific articles have shown that the actual distance traveled is probably the most relevant telematics information. The combination of the distance traveled with the classic segmentation variables will thus correspond to our benchmark.
+
+### Model Fairness {-}
+
+[@oueini] and [@grari2022fair] suggest several metrics to measure the level of fairness of an actuarial model used in a pricing context. In particular, penalties can be applied during model training to improve some of these metrics. Thus, for example, in [@oueini], a Kullback-Leibler penalty is used to reduce the distortion a pricing model introduces between the accident probability of a sensitive variable (gender and age) observed in the data and predicted by a machine learning model. We will adapt the models of [@oueini] to telematics data and then generalize the models to the necessary distributions to see how introducing a fairness penalty impacts the classic covariates.
+
+### Analyzed Coverages {-}
+
+Initially, we will analyze the collision coverage only (fault and not-at-fault). Subsequently, the analysis extends to comprehensive coverage for which we conjecture that the impact of telematics will be much less. Finally, we will analyze accident benefits and bodily injury coverages by separating the frequency and severity components. Indeed, for these two coverages, the risk comes in a significant proportion from the severity component linked to the victim's salary and, therefore, more or less directly to sensitive variables. Thus, we think telematics's impact will once again be limited.
+
+:::
+
+
+#	Timeframe for Project 
+
+We believe that the entire project can be broken down into milestone stages, defined below:
+
+::: {.panel-tabset}
+
+## Data Analysis
+
+- Collecting and merging the insurance data and the telematic data;
+- Analyzing classic and telematic covariates for the number of claims and the cost of the claims (collision coverages);  
+- Summarizing the data using several tables and graphs (an important task so that the report is accessible to all actuaries);    
+ 
+## Covariates Selection
+
+- For the claims frequency and the claims severity, partially replicating the results of [@duval1] and [@DUV23] by doing a covariates selection using GLM-net algorithms or other related approaches;  
+- Analyzing the results to see if the use of telematic data reduces the importance given to classic segmentation variables, such as age, gender, or territory;
+- Highlighting the problem of unjustified segmentation in insurance pricing by choosing some insured profiles.
+
+## Generalizing Distributions
+
+- Generalizing the model for other count distributions that should better fit the number of claims in automobile insurance;  
+- Generalizing the model for other claims severity distributions that should better fit the cost of claims in automobile insurance;
+- Revisiting the covariates selection algorithm all distributions.
+
+## Fairness Metric 
+
+- Replications and generalisations of the model of [@oueini] for claims frequency and for claims severity, and to include telematics information;  
+- Developing new penalty metrics to measure the level of fairness in a pricing model;  
+- Application of the approach for the claims frequency and the claims severity. 
+
+## Other Coverages
+
+- Using the models developped, analyzing the comprehensive coverage for claims frequency and claims severity to see how telematics information is usefull for this coverage;  
+- Generalizing the severity analysis for long-tail distribution to analyse the accident benefits (and the bodily injury) coverage.
+
+## Final Results
+
+- Analysis of the results: 
+  - Comparison of models and comparison of parameters estimates;
+  - Explaining the final models with several insured profiles;
+- Complete the final report: 
+  - Cleaning all computer codes and adding explanations for all R scripts present in the report.
+- Discussion and proposal for future generalizations;  
+
+:::
+

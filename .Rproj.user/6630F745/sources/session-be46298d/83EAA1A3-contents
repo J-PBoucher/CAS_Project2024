@@ -1,0 +1,2146 @@
+# Data Summary
+
+## Preamble
+
+
+::: {.panel-tabset}
+
+### Chapter Objective
+
+The objective of this chapter is the same as that of Chapter 2. However, we will analyze severity.
+
+### Packages
+
+Here is the list of packages that will be used:
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+library(tidyverse)
+library(vtable)
+library(rpart)
+library(repr)
+library(rpart.plot)
+library(rfCountData)
+library(gam)
+
+```
+
+### Data
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+
+dataS <- read.csv('Data/Synthetic.csv')
+data <- dataS[dataS$AMT_Claim > 0,]
+data$M_Claim <- data$AMT_Claim/data$NB_Claim
+
+# Modifications 
+data <- data %>%
+  mutate(Territory = as.factor(Territory)) %>%
+  select(-c('Annual.pct.driven', 'Annual.miles.drive'))
+
+data.select <- data
+
+# Train-test et folds
+set.seed(123)
+train <- data.select %>% sample_frac(0.8, replace = FALSE)
+test <- data.select %>% anti_join(train)
+```
+
+:::
+
+
+## Traditional covariates {#sec-vartrad}
+
+Duration is often not considered in the modeling of severity so we don't use it for the severity analysis.
+
+### Sensitive information {#sec-sensibles}
+
+::: {.panel-tabset}
+
+### Credit score 
+
+We conduct the same exercise with the credit score. In the graph below, we can see the relation between the credit score and claim severity in the portfolio: the points indicate the observed claims average severity, the size of the points measures the Number of claims for each group, and a trend curve (in red) for the average severity has been added.  
+As for the frequency, we observe a non-linear relationship, but overall, a better credit score implies a lower claim severity.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CreditScore
+#| fig-cap: "Average claim severity vs. Credit Score"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(Credit.score/25) * 25) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + 
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Credit score',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #  xlim(0,1)+ylim(0, 0.06)+
+  theme_bw()
+
+```
+
+### Age of the insured
+
+The age of the insured is also a sensitive variable in ratemaking. 
+The graph below illustrates the relationship between age and claim severity. There is a negative relationship between the age and the average claim severity.
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-InsuredAge
+#| fig-cap: "Average claim severity vs. Age"
+#| fig-width: 9
+#| fig-height: 4
+
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(Insured.age/10) * 10) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) + 
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Age',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #  xlim(0,1)+ylim(0, 0.06)+
+  theme_bw()
+
+```
+
+### Sex of the insured
+
+The graph below shows the distribution of gender in the portfolio (in bars), as well as the observed average claim severity (in red). We do not see a significant difference between means which can be confirmed using, e.g., the Welch two sample t-test. The $p$-value of the test is $0.2573$ meaning that the null hypothesis, the true difference in means is equal to $0$, cannot be rejected.
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-InsuredSex
+#| fig-cap: "Average claim severity vs. Sex"
+#| fig-width: 9
+#| fig-height: 4
+
+temp <- train %>%
+  mutate(Var_ = Insured.sex) %>%
+  group_by(Var_) %>%
+  summarize(Msev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = Msev/1)
+
+div <- min(temp$expo/temp$sev)/1.5
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype = "Number of claims")) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+            inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype = "Claim severity"), color='red', size=0.7,
+            inherit.aes = FALSE) +
+    labs(x = 'Sex',
+       y = 'Number of claims') +
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Claim severity")) +
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+```
+
+
+### Marital Status
+
+The marital status of the insured individual has a minimal impact on the average claim severity. A $95$ percent confidence interval for the true difference in means is $[-797, -12]$, which is very close to including $0$.
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 1
+#| label: fig-Marital
+#| fig-cap: "Average claim severity vs. Marital Status"
+#| fig-width: 9
+#| fig-height: 4
+
+temp <- train %>%
+  mutate(Var_ = Marital) %>%
+  group_by(Var_) %>%
+  summarize(mSev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = mSev/1)
+
+div <- min(temp$expo/temp$sev)/0.8
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype = "Number of claims")) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+             inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype = "Claim Severity"), color='red', size=0.7,
+            inherit.aes = FALSE) +
+  labs(x = 'Marital status',
+       y = 'Number of claims') +
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Average claim Severity")) +
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+```
+
+### Insured's territory
+
+We note that territory does not significantly impact a claim severity except for categories 74 and 91. For territory 74, this is mainly explained by a large claim ($104,074.9). Given these categories artificial nature, it is impossible to offer a rational explanation.
+
+```{r}
+#| echo: true
+#| eval: true 
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Terr
+#| fig-cap: "Average claim severity vs. Territory"
+#| fig-width: 9
+#| fig-height: 4
+
+
+temp <- train %>%
+  mutate(Var_ = Territory) %>%
+  group_by(Var_) %>%
+  summarize(mSev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = mSev/1)
+
+div <- min(temp$expo/temp$sev)/0.4
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype = "Number of claims")) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=1.5,
+             inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype = "Average Claim Severity"), color='red', size=0.7,
+            inherit.aes = FALSE) +
+  labs(x = 'Territory',
+       y = 'Number of claims') +
+  scale_x_discrete(labels = NULL, breaks = NULL)+
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Average claim severity")) +
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+```
+
+### Correlation
+
+The correlation matrix below indicates the level of dependence between each of the sensitive variables. 
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Corr0
+#| fig-cap: "Correlation between sensible covariates"
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory")
+
+data = data.matrix(train[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+plt <- ggplot(data = as.data.frame(as.table(correlation_matrix)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=4) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=10, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 10),
+          plot.title = element_text(size = 10),   # Adjust plot title font size
+          legend.text = element_text(size = 10),
+          legend.title = element_text(size=10))
+print(plt)
+
+
+```
+
+
+
+:::
+
+
+### Other covariates {#sec-vtautres}
+
+::: {.panel-tabset}
+
+### Car Age
+
+The graph below highlights the relationship between claim severity and vehicle age. A fairly clear link is observed: the newer a vehicle is, the more it costs.
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CarAge
+#| fig-cap: "Average claim severity vs. Car Age"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(Car.age/1) * 1) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Car age',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #  xlim(0,1)+ylim(0, 0.06)+
+  theme_bw()
+
+
+```
+
+
+### Use of the car
+
+In the graph below, we see that the use of the vehicle has an impact on the average claim severity. We notice a very low exposure for two categories: farmer and commercial. If we focus only on the other two categories, the difference remains significant (the $p$-value is very close to $0$). However, this effect seems to disappear if we also take into account the car age.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CarUse
+#| fig-cap: "Average claim severity vs. Car Use"
+#| fig-width: 9
+#| fig-height: 4
+
+
+temp <- train %>%
+  mutate(Var_ = Car.use) %>%
+  group_by(Var_) %>%
+  summarize(mSev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = mSev/1)
+
+div <- min(temp$expo/temp$sev)/0.07
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype='Number of claims')) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+             inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype = 'Claim Severity'), color='red', size=0.7,
+            inherit.aes = FALSE) +
+  labs(x = 'Car Use',
+       y = 'Number of claims') +
+  #scale_x_discrete(labels = NULL, breaks = NULL)+
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Claim Severity"))  + 
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+```
+
+### Region
+
+The difference in severity between urban and rural claims is illustrated in the graph below. The $p$ value is very close to $5\%$, a $95$ percent confidence interval for the true difference in means is $[-892, -1.49]$, and we conclude there is no significant difference between these two regions.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 1
+#| label: fig-Region
+#| fig-cap: "Average claim severity vs. Region"
+#| fig-width: 9
+#| fig-height: 4
+
+
+temp <- train %>%
+  mutate(Var_ = Region) %>%
+  group_by(Var_) %>%
+  summarize(mSev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = mSev/1)
+
+div <- min(temp$expo/temp$sev)/0.5
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype='Number of claims')) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+            inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype='Claim Severity'), color='red', size=0.7,
+            inherit.aes = FALSE) +
+    labs(x = 'Region',
+       y = 'Number of claims') +
+  #scale_x_discrete(labels = NULL, breaks = NULL)+
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Claim Severity")) + 
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+```
+
+
+### Years without Claim
+
+The graph below illustrates the relationship between the number of claim-free years and the average claim severity. The link between these two variables is unclear.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-YWC
+#| fig-cap: "Average claim severity vs. Years without Claim"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = pmin(Years.noclaims, 60)) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Years without claim',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(0, 0.06)+
+  theme_bw()
+
+
+```
+
+
+### Correlation
+
+Below, we can observe the correlation that exists between the traditional segmentation variables. 
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Corr
+#| layout-ncol: 2
+#| fig-cap: "Correlation between traditional covariates"
+#| fig-subcap: 
+#|   - "Other traditionnal covariates"
+#|   - "With sensible covariates"
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory",
+                "Car.use", "Region", "Car.age", "Years.noclaims")
+
+data = data.matrix(train[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+corr1 <- correlation_matrix[6:9, 6:9]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 6:9]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+```
+
+
+::: 
+
+## Telematic covariates {#sec-vartele}
+
+### Vehicle usage level {#sec-tele1}
+
+::: {.panel-tabset}
+
+### Annual Miles Driven
+
+In addition to the declared distance, we also have access to the actual distance traveled by the insured 
+through the telematics device installed in the vehicle. It is increasingly recognized that the distance 
+driven in a car can constitute a more precise measure of risk exposure than simply the duration of the insurance 
+contract. However, 
+
+The graph below illustrates the claim severity as a function of the distance driven. 
+There appears to be a small negative relationship between these two variables.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 1
+#| label: fig-MilesDriveb
+#| fig-cap: "Average claim severity vs. Total Miles Driven"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ifelse(Total.miles.driven < 20000, ceiling(Total.miles.driven/1000) * 1000, ceiling(Total.miles.driven/5000) * 5000)) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Total miles driven',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  xlim(0,25000)+
+  ylim(0, 7500)+
+  theme_bw()
+```
+
+
+
+### Contract duration revisited
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 1
+#| label: fig-AveMilesDriveb
+#| fig-cap: "Average claim severity vs. average miles driven per day"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Miles.per.day = Total.miles.driven/Duration, 
+                Duration.y = Duration/365.25, 
+                Group = ceiling(Miles.per.day/7.5) * 7.5) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average miles driven per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  xlim(0,127.5)+
+  #ylim(0, 0.31)+
+  theme_bw()
+
+```
+
+### Days per week
+
+Another intensity measure that may be close to the usage percentage is the average number of vehicle uses per week. 
+The graph below shows no clear relationship between these two variables.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 1
+#| label: fig-AveNum
+#| fig-cap: "Average claim severity vs. average number of days per week the car is used"
+#| fig-width: 9
+#| fig-height: 4
+
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(Avgdays.week/0.5) * 0.5) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of days per week',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(0, 0.31)+
+  theme_bw()
+
+```
+
+### Correlation
+
+Once again, we can observe the dependency between the covariates by looking at the results below. 
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Corr2
+#| layout-ncol: 2
+#| fig-cap: "Correlation between covariates"
+#| fig-subcap: 
+#|   - "Telematic covariates"
+#|   - "With sensible covariates"
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory",
+                "Miles.per.day", "Avgdays.week")
+
+train <- train %>%
+  dplyr::mutate(Miles.per.day = Total.miles.driven/Duration)
+                
+data = data.matrix(train[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+corr1 <- correlation_matrix[6:7, 6:7]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 6:7]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+```
+
+
+
+:::
+
+
+### Type of vehicle usage {#sec-tele2}
+
+Instead of using the telematics device solely to measure vehicle usage, it is also possible to see if certain types of vehicle usage are indicators of a higher risk of claims. In this section, we will analyze certain telematics information that we classify as types of usage.
+
+::: {.panel-tabset}
+
+### Days
+
+One pertinent piece of information is to investigate whether vehicle usage on certain days of the week predicts 
+a higher claim frequency. Seven covariates are available in the database, each indicating the percentage of 
+vehicle usage on a particular day of the week. It is worth noting that the sum of the 7 percentages for each 
+contract equals 1. Thus, high vehicle usage on a Saturday corresponds to a high percentage of usage for that day,
+necessarily implying that the other days will have smaller percentages.
+
+The 7 graphs below illustrate the claim severity as a function of vehicle usage for each day of the week. 
+The results obtained for each day are similar and seem to indicate that uniform vehicle usage across all 7 days
+(i.e., 1/7 = 14.2%) is the riskiest situation. Thus, vehicle usage for each day appears to signify something, 
+but the information provided by these covariates likely needs transformation.
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 3
+#| layout-nrow: 3
+#| label: fig-EachDay
+#| fig-cap: "Average claim severity vs. percentage of use for each day"
+#| fig-subcap: 
+#|   - "Monday"
+#|   - "Tuesday"
+#|   - "Wednesday"
+#|   - "Thursday"
+#|   - "Friday"
+#|   - "Saturday"
+#|   - "Sunday"
+
+div <- 1/15 
+
+var <- 'Pct.drive.mon'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claims severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 6000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.tue'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 6000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.wed'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 8000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.thr'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 6000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.fri'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 20000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.sat'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 8000)+
+  theme_bw()
+
+
+var <- 'Pct.drive.sun'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=F, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  ylim(0, 8000)+
+  theme_bw()
+
+```
+
+### Days (2)
+
+In light of the results obtained from the analysis of vehicle usage for each day of the week, it is appropriate to create new variables that may better represent the risk. We thus create the following variables:  
+  
+1) A variable identifying the maximum value of vehicle usage for each day;  
+2) A variable identifying the minimum value of vehicle usage for each day;  
+3) A variable measuring the difference between the maximum and minimum values, which have just been calculated. This variable can thus identify insured individuals who use their vehicle more on specific days, or conversely, insured individuals who typically refrain from using their vehicle on certain days of the week.
+
+For each of these variables, the graph representing the relationship between claim severity 
+is illustrated below. All graphs do not seem to point to a significant result.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| label: fig-EachDay2
+#| fig-cap: "Average claim severity vs. use for each day"
+#| fig-subcap: 
+#|   - "Maximum Use"
+#|   - "Minimum Use"
+#|   - "Difference between maximum and minimum use"
+
+df2 <- train %>%
+  mutate(max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin))
+
+div <- 1/25 
+var <- 'max.day'
+df2 %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Maximum usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+div <- 1/75 
+var <- 'min.day'
+df2 %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Minimum usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+div <- 1/25 
+var <- 'max.min'
+df2 %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Difference between percentages',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+
+```
+
+
+### Days (3)
+
+Continuing with the analysis related to the days of vehicle usage, two additional variables can also be explored:  
+  1) A variable identifying the day of the week when the vehicle is most used;
+2) A variable identifying the day of the week when the vehicle is least used.
+
+The graphs below attempt to verify if the claim frequency differs for those who use their vehicle more or less on specific days of the week.  It is evident that Friday is the day when insured individuals tend to use their car more frequently. Conversely, Sunday is the day when the car appears to be used the least.
+No significant results.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 1
+#| label: fig-EachDay3
+#| fig-cap: "Claim severity vs. sse for each day"
+#| fig-subcap: 
+#|   - "Day with the maximum use"
+#|   - "Day with the minimum use"
+
+df2 <- train %>%
+  mutate(max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin))
+
+df2$Dayformax <- factor(df2$Dayformax , levels=c("Monday","Tuesday","Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+df2$Dayformin <- factor(df2$Dayformin , levels=c("Monday","Tuesday","Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+
+temp <- df2 %>%
+  mutate(Var_ = Dayformax) %>%
+  group_by(Var_) %>%
+  summarize(msev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = msev/1)
+
+div <- min(temp$expo/temp$sev)/0.5
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype='Number of claims')) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+             inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype='Claim severity'), color='red', size=0.7,
+            inherit.aes = FALSE) +
+  labs(x = 'Day of the week',
+       y = 'Number of claims') +
+  #scale_x_discrete(labels = NULL, breaks = NULL)+
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Claim severity")) + 
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+temp <- df2 %>%
+  mutate(Var_ = Dayformin) %>%
+  group_by(Var_) %>%
+  summarize(msev = mean(M_Claim),
+            expo = sum(Duration/365.25)) %>%
+  mutate(sev = msev/1)
+
+div <- min(temp$expo/temp$sev)/0.2
+
+ggplot(data = temp, aes(x = Var_, y = expo, linetype='Number of claims')) + #start plot by by plotting bars
+  geom_bar(stat = "identity", alpha=0.5) + 
+  geom_point(data = temp, aes(x = Var_, y = (sev)*div, group = 1), color='red', size=3,
+             inherit.aes = FALSE) +
+  geom_line(data = temp, aes(x = Var_, y = (sev)*div, group = 1, linetype='Claim severity'), color='red', size=0.7,
+            inherit.aes = FALSE) +
+  labs(x = 'Day of the week',
+       y = 'Number of claims') +
+  #scale_x_discrete(labels = NULL, breaks = NULL)+
+  scale_y_continuous(sec.axis = sec_axis(~./div, name = "Claim severity")) + 
+  guides(linetype=guide_legend(title="")) +
+  theme_classic()+
+  theme(legend.position = 'bottom', legend.direction = "horizontal")
+
+
+
+```
+
+
+### Week-end
+
+A grouping of the vehicle usage variables for the days of the week has been performed directly in the database. 
+Thus, the usage percentages for the days from Monday to Friday have been summed, and the usage for Saturday and Sunday has been summed into another variable. 
+Knowing that the two covariates are complementary (since the sum of both equals 100%), only one of the two variables needs to be kept. 
+No significant relationship.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 1
+#| label: fig-weekweekend
+#| fig-cap: "Average claim severity vs. percentage of use week day and week-end day"
+#| fig-subcap: 
+#|   - "Week day"
+#|   - "Weekend day"
+
+
+var <- 'Pct.drive.wkday'
+div <- 1/25
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Pct.drive.wkend'
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25, 
+                Group = ceiling(get(var)/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Usage percentage per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+```
+
+### Trip Duration
+
+The common explanation for claim probability highlights the use of highways. 
+The graphs of claim severity as a function of the percentage of trips exceeding 2, 3, or 4 hours are illustrated below.
+No significant impact.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| label: fig-HrDrive
+#| fig-cap: "Average claim severity vs. percentage of vehicule driven by XX hours"
+#| fig-subcap: 
+#|   - "2 hours"
+#|   - "3 hours"
+#|   - "4 hours"
+
+
+var <- 'Pct.drive.2hrs'
+
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Percent of driving',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Pct.drive.3hrs'
+
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Percent of driving',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Pct.drive.4hrs'
+
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Percent of driving',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+
+```
+
+### Rush hours
+
+Another common hypothesis links the frequency of automobile insurance claims to traffic congestion. 
+Thus, the proportion of trips made in traffic jams, whether in the morning or evening, is also available 
+in the database. The graphs of severity linked to these two variables are illustrated below.
+No significant impact.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 2
+#| layout-nrow: 1
+#| label: fig-Rush
+#| fig-cap: "Average claim severity vs. Percentage of vehicule driven during rush hours"
+#| fig-subcap: 
+#|   - "AM Rush"
+#|   - "PM Rush"
+
+
+
+var <- 'Pct.drive.rush.am'
+
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Percent of driving',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Pct.drive.rush.pm'
+
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Percent of driving',
+       y = 'Claims frequency') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+
+```
+
+### Correlation
+
+The dependency between each studied covariate is illustrated below. 
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Corr3
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| fig-cap: "Correlation between covariates"
+#| fig-subcap: 
+#|   - "Telematic covariates"
+#|   - "With sensible covariates"
+
+
+train2 <- train %>%
+  mutate(Miles.per.day = Total.miles.driven/Duration,
+         max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+         expo = Duration/365.25)
+
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory",
+                "Pct.drive.mon", "Pct.drive.tue", "Pct.drive.wed", "Pct.drive.thr", "Pct.drive.fri", "Pct.drive.sat", "Pct.drive.sun")
+
+data = data.matrix(train2[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+corr1 <- correlation_matrix[6:12, 6:12]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=4) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 6:12]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory",
+                "max.day", "min.day", "Dayformax", "Dayformin", "Pct.drive.wkend", 
+                "Pct.drive.2hrs", "Pct.drive.3hrs", "Pct.drive.4hrs",
+                "Pct.drive.rush.am", "Pct.drive.rush.pm")
+
+data = data.matrix(train2[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+corr1 <- correlation_matrix[6:15, 6:15]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=4) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 6:15]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+```
+
+
+
+:::
+  
+### Driving behavior {#sec-tele3}
+  
+Beyond the intensity of vehicle usage, telematics devices also allow for the compilation of various statistics on driving behavior. This primarily includes sudden braking, rapid acceleration, or high-speed turns (both left and right). In this final part of the analysis of segmentation variables available in the database, we will therefore work on analyzing and transforming these variables.
+
+::: {.panel-tabset}
+
+### Brakes
+
+In the database, we have access to a series of variables counting the number of abrupt braking events, 
+with decelerations of 6mph, 8mph, 9mph, 11mph, 12mph, and 14mph per 1000 miles traveled. 
+As indicated in the description, the number of abrupt braking events is normalized by the 
+distance traveled and not by the number of insured days. 
+Since we choose to use the number of insured days as a measure of exposure to risk, 
+a transformation of these variables is necessary.
+
+
+The 6 graphs below illustrate the relationship between the number of daily abrupt braking events and claim severity.
+For the first 4 scenarios, a weak relationship can be observed.
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 3
+#| layout-nrow: 2
+#| label: fig-Brake
+#| fig-cap: "Average claim severity vs. Average number of brakes"
+#| fig-subcap: 
+#|   - "Brakes of 6 mph"
+#|   - "Brakes of 8 mph"
+#|   - "Brakes of 9 mph"
+#|   - "Brakes of 11 mph"
+#|   - "Brakes of 12 mph" 
+#|   - "Brakes of 14 mph"
+
+
+var <- 'Brake.06miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Brake.08miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Brake.09miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Brake.11miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Brake.12miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Brake.14miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of brakes per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+```
+
+
+### Accelerations
+
+Similarly to braking events, we need to convert accelerations, which are normalized by miles driven, into average daily accelerations. 
+The 6 graphs below illustrate the relationship between the average acceleration and claim severity.
+
+No significant impact.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 3
+#| layout-nrow: 2
+#| label: fig-Accel
+#| fig-cap: "Average claim severity vs. Average number of accelerations"
+#| fig-subcap: 
+#|   - "Accelerations of 6 mph"
+#|   - "Accelerations of 8 mph"
+#|   - "Accelerations of 9 mph"
+#|   - "Accelerations of 11 mph"
+#|   - "Accelerations of 12 mph"
+#|   - "Accelerations of 14 mph"
+
+var <- 'Accel.06miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Accel.08miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Accel.09miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Accel.11miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Accel.12miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Accel.14miles'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of accelerations per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+```
+
+### Right turns
+
+No clear impact.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 3
+#| layout-nrow: 2
+#| label: fig-Right
+#| fig-cap: "Average claim severity vs. Average number of right turns"
+#| fig-subcap: 
+#|   - "Right turns of 8 mph"
+#|   - "Right turns of 9 mph"
+#|   - "Right turns of 10 mph"
+#|   - "Right turns of 11 mph"
+#|   - "Right turns of 12 mph"
+
+var <- 'Right.turn.intensity08'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of right turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Right.turn.intensity09'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of right turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Right.turn.intensity10'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of right turns per day',
+       y = 'Claims frequency') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Right.turn.intensity11'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of right turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+var <- 'Right.turn.intensity12'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of right turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+```
+
+
+
+### Left turns
+No clear impact.
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| layout-ncol: 3
+#| layout-nrow: 2
+#| label: fig-Left
+#| fig-cap: "Average claim severity vs. Average number of left turns"
+#| fig-subcap: 
+#|   - "Left turns of 8 mph"
+#|   - "Left turns of 9 mph"
+#|   - "Left turns of 10 mph"
+#|   - "Left turns of 11 mph"
+#|   - "Left turns of 12 mph"
+
+var <- 'Left.turn.intensity08'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of left turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Left.turn.intensity09'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of left turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Left.turn.intensity10'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of left turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Left.turn.intensity11'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of left turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+var <- 'Left.turn.intensity12'
+df2 <- train %>% mutate(VAR = get(var))
+q99 <- quantile(df2$VAR, 0.99)
+div <- q99/15
+train %>%
+  dplyr::mutate(Duration.y = Duration/365.25,
+                VAR = ifelse(get(var) > q99, q99, get(var)),
+                Group = ceiling(VAR/div) * div) %>%
+  group_by(Group) %>% 
+  summarize(M_Claim=mean(M_Claim),
+            expo=sum(Duration.y)) %>% 
+  mutate(sev = M_Claim/1) %>%
+  ggplot(aes(x=Group, y=sev)) + 
+  geom_point(aes(size=expo), color='black') + scale_size_continuous(range = c(1,4)) +
+  geom_smooth(aes(weight = expo),se=T, color='red', size=1) + 
+  labs(x = 'Average number of left turns per day',
+       y = 'Claim severity') +
+  guides(size = guide_legend(title = "Number of claims")) +
+  #xlim(0,40000)+
+  #ylim(-0.01, 0.06)+
+  theme_bw()
+
+
+```
+
+### Correlation
+
+
+
+```{r}
+#| echo: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-Corr4
+#| layout-ncol: 2
+#| layout-nrow: 2
+#| fig-cap: "Correlation between covariates"
+#| fig-subcap: 
+#|   - "Telematic covariates"
+#|   - "With sensible covariates"
+
+
+train2 <- train %>%
+  mutate(Miles.per.day = Total.miles.driven/Duration,
+         max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+         max.min = max.day - min.day,
+         Dayformax = 'Monday', 
+         Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+         Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+         Dayformin = 'Monday', 
+         Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+         Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+         expo = Duration/365.25)
+
+
+trad.vars  <- c("Marital", "Insured.sex", "Credit.score", "Insured.age", "Territory",
+                "Accel.06miles", "Accel.08miles", "Accel.09miles", "Accel.11miles", "Accel.12miles", "Accel.14miles", 
+               "Brake.06miles", "Brake.08miles", "Brake.09miles", "Brake.11miles", "Brake.12miles", "Brake.14miles", 
+               "Left.turn.intensity08", "Left.turn.intensity09", "Left.turn.intensity10", "Left.turn.intensity11", "Left.turn.intensity12",
+               "Right.turn.intensity08", "Right.turn.intensity09", "Right.turn.intensity10", "Right.turn.intensity11", "Right.turn.intensity12")
+
+data = data.matrix(train2[, paste(trad.vars)])
+correlation_matrix <- abs(cor(data))
+
+corr1 <- correlation_matrix[6:17, 6:17]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=4) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 6:17]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+corr1 <- correlation_matrix[18:27, 18:27]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=4) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+corr1 <- correlation_matrix[1:5, 18:27]
+
+ggplot(data = as.data.frame(as.table(corr1)), aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile() +
+    scale_fill_gradientn(colors = colorRampPalette(c("gray", "blue", "red"))(50), name = "Correlation") +
+    geom_text(aes(label = round(Freq, 2)), color = "white", size=6) +
+    #scale_fill_continuous(na.value = 'white') +
+    theme_minimal() +
+    theme(axis.title.x = element_blank(),
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(size=13, angle = 45, hjust = 1), 
+          axis.text.y = element_text(size = 13),
+          plot.title = element_text(size = 13),   # Adjust plot title font size
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size=13))
+
+
+```
+
+:::
+
+
+
+
+

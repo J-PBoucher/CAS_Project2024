@@ -1,0 +1,454 @@
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+Score.pred <- function(mu, x) {
+Sc.log  <- -sum(dpois(x, mu, log=TRUE))
+Sc.MSE  <- sum((x - mu)^2)
+Sc.quad <- sum(-2*dpois(x,lambda=mu) + sapply(mu, function(x){ sum(dpois(0:10,lambda=x)^2) }))
+Sc.sph <- sum(- dpois(x,mu) / sqrt(sapply(mu, function(x){ sum(dpois(0:10,lambda=x)^2) })))
+Sc.DSS <- sum(dss_pois(x, mu))
+Sc.CRPS <- sum(crps_pois(x, mu))
+return(c(Sc.log, Sc.MSE, Sc.quad, Sc.sph, Sc.DSS, Sc.CRPS))
+}
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+library(tidyverse)
+library(vtable)
+library(rpart)
+library(repr)
+library(rpart.plot)
+library(rfCountData)
+library(gam)
+library(knitr)
+library(kableExtra)
+library(janitor)
+library(glmnet)
+library(scoringRules)
+library(sjPlot)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+dataS <- read.csv('Data/Synthetic.csv')
+# Modifications
+dataS <- dataS %>%
+mutate(Territory = as.factor(Territory)) %>%
+select(-c('Annual.pct.driven', 'Annual.miles.drive'))
+data.select <- dataS
+# Train-test
+set.seed(123)
+train <- data.select %>% sample_frac(0.8, replace = FALSE)
+test <- data.select %>% anti_join(train)
+# Modif data
+train2 <- train %>%
+mutate(Miles.per.day = Total.miles.driven/Duration,
+max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+max.min = max.day - min.day,
+Dayformax = 'Monday',
+Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+Dayformin = 'Monday',
+Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+expo = Duration/365.25)
+transform.fct <- function(var){
+df <- train2 %>% mutate(var_ = get(var)*Total.miles.driven/(1000*Duration))
+q99 <- quantile(df$var_, 0.99)
+df <- df %>% mutate(var_ = ifelse(var_ > q99, q99, var_))
+#colnames(df)[ncol(df)] <- paste0(var, '_')
+return(df)
+}
+train2 <- transform.fct("Brake.06miles")
+train2 <- transform.fct("Brake.08miles")
+train2 <- transform.fct("Brake.09miles")
+train2 <- transform.fct("Brake.11miles")
+train2 <- transform.fct("Brake.14miles")
+train2 <- transform.fct("Accel.06miles")
+train2 <- transform.fct("Accel.08miles")
+train2 <- transform.fct("Accel.09miles")
+train2 <- transform.fct("Accel.11miles")
+train2 <- transform.fct("Accel.12miles")
+train2 <- transform.fct("Accel.14miles")
+train2 <- transform.fct("Left.turn.intensity08")
+train2 <- transform.fct("Left.turn.intensity09")
+train2 <- transform.fct("Left.turn.intensity10")
+train2 <- transform.fct("Left.turn.intensity11")
+train2 <- transform.fct("Left.turn.intensity12")
+train2 <- transform.fct("Right.turn.intensity08")
+train2 <- transform.fct("Right.turn.intensity09")
+train2 <- transform.fct("Right.turn.intensity10")
+train2 <- transform.fct("Right.turn.intensity11")
+train2 <- transform.fct("Right.turn.intensity12")
+# Create folds
+nb.fold <- 5
+fold <- sample(1:nb.fold, nrow(train2), replace = TRUE)
+train2$fold <- fold
+##
+test2 <- test %>%
+mutate(Miles.per.day = Total.miles.driven/Duration,
+max.day = pmax(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+min.day = pmin(Pct.drive.mon, Pct.drive.tue, Pct.drive.wed, Pct.drive.thr, Pct.drive.fri, Pct.drive.sat, Pct.drive.sun),
+max.min = max.day - min.day,
+Dayformax = 'Monday',
+Dayformax = ifelse(max.day == Pct.drive.tue, 'Tuesday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.wed, 'Wednesday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.thr, 'Thursday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.fri, 'Friday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.sat, 'Saturday', Dayformax),
+Dayformax = ifelse(max.day == Pct.drive.sun, 'Sunday', Dayformax),
+Dayformin = 'Monday',
+Dayformin = ifelse(min.day == Pct.drive.tue, 'Tuesday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.wed, 'Wednesday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.thr, 'Thursday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.fri, 'Friday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.sat, 'Saturday', Dayformin),
+Dayformin = ifelse(min.day == Pct.drive.sun, 'Sunday', Dayformin),
+expo = Duration/365.25)
+transform.fct <- function(var){
+df <- test2 %>% mutate(var_ = get(var)*Total.miles.driven/(1000*Duration))
+q99 <- quantile(df$var_, 0.99)
+df <- df %>% mutate(var_ = ifelse(var_ > q99, q99, var_))
+#colnames(df)[ncol(df)] <- paste0(var, '_')
+return(df)
+}
+test2 <- transform.fct("Brake.06miles")
+test2 <- transform.fct("Brake.08miles")
+test2 <- transform.fct("Brake.09miles")
+test2 <- transform.fct("Brake.11miles")
+test2 <- transform.fct("Brake.14miles")
+test2 <- transform.fct("Accel.06miles")
+test2 <- transform.fct("Accel.08miles")
+test2 <- transform.fct("Accel.09miles")
+test2 <- transform.fct("Accel.11miles")
+test2 <- transform.fct("Accel.12miles")
+test2 <- transform.fct("Accel.14miles")
+test2 <- transform.fct("Left.turn.intensity08")
+test2 <- transform.fct("Left.turn.intensity09")
+test2 <- transform.fct("Left.turn.intensity10")
+test2 <- transform.fct("Left.turn.intensity11")
+test2 <- transform.fct("Left.turn.intensity12")
+test2 <- transform.fct("Right.turn.intensity08")
+test2 <- transform.fct("Right.turn.intensity09")
+test2 <- transform.fct("Right.turn.intensity10")
+test2 <- transform.fct("Right.turn.intensity11")
+test2 <- transform.fct("Right.turn.intensity12")
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_base
+#| tbl-cap: Prediction scores for the base model
+## Model on each fold
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+learn <- train2[train2$fold != i,]
+valid <- train2[train2$fold == i,]
+mean <- sum(learn$NB_Claim)/sum(learn$expo)
+learn$pred.base <- mean*learn$expo
+valid$pred.base <- mean*valid$expo
+Result_ <- rbind(Result_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)/nrow(valid)))
+Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)))
+}
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+Result.base <- Result_
+Base <- Result.base[nb.fold+1,]
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%
+kable_styling(bootstrap_options = "striped", full_width = T)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest
+#| tbl-cap: Prediction scores for the base model (testing set)
+mean <- sum(train2$NB_Claim)/sum(train2$expo)
+test2$pred.base <- mean*test2$expo
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('Base', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+Result_all <- Result_
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%
+kable_styling(bootstrap_options = "striped", full_width = T)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_GLM1
+#| tbl-cap: Prediction scores for the GLM1 model
+## Model
+score.base <- as.formula(NB_Claim ~ 1 + offset(log(expo)))
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+## Model on each fold
+Result_  <- data.frame()
+Result2_  <- data.frame()
+for(i in 1:nb.fold) {
+learn <- train2[train2$fold != i,]
+valid <- train2[train2$fold == i,]
+glm.fit <- glm(score.glm, family = poisson(), data = learn)
+learn$pred.base <- predict(glm.fit, newdata=learn, type='response')
+valid$pred.base <- predict(glm.fit, newdata=valid, type='response')
+Result_ <- rbind(Result_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)/nrow(valid)))
+Result2_ <- rbind(Result2_, c(i, Score.pred(valid$pred.base, valid$NB_Claim)))
+}
+## Model on all data from train
+glm.base <- glm(score.base, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+train2$pred.glm1 <- predict(glm.fit, newdata=train2, type='response')
+Result.glm1 <- Result_
+## Show results
+colnames(Result_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+colnames(Result2_) <- c('Fold', "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+tot <- colSums(Result2_)/nrow(train2)
+tot$Fold <- 'Total'
+Result_ <- rbind(Result_ , tot)
+Result_ <- rbind(Result_, Base)
+Result_[nb.fold+2,1] <- 'Improvement'
+for(i in 2:7){
+Result_[nb.fold+2,i] <-  Result_[nb.fold+1,i] - Result_[nb.fold+2,i]
+}
+rownames(Result_) <- NULL
+knitr::kable(Result_, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%
+kable_styling(bootstrap_options = "striped", full_width = T)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Pscore_basetest2
+#| tbl-cap: Prediction scores for the GLM model with traditional covariates (testing set)
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+test2$pred.base <- predict(glm.fit, newdata=test2, type='response')
+Result_ <- data.frame(t(Score.pred(test2$pred.base, test2$NB_Claim)/nrow(test2)))
+Result_ <- cbind('GLM (trad.)', Result_)
+colnames(Result_) <- c("Model", "Sc.log", "Sc.MSE", "Sc.quad", "Sc.sph", "Sc.DSS", "Sc.CRPS")
+Result_all <- rbind(Result_all, Result_)
+knitr::kable(Result_all, align = "ccccccc", digits = c(0, 5, 5, 5, 5, 5, 5), format.args = list(big.mark = ","))%>%
+kable_styling(bootstrap_options = "striped", full_width = T)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-CoeffGLM
+#| tbl-cap: Estimated parameters for the GLM1 model
+## Model
+score.base <- as.formula(NB_Claim ~ 1 + offset(log(expo)))
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo)))
+## Model on all data from train
+glm.base <- glm(score.base, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+tab_model(glm.base, glm.fit, transform = NULL)
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CS_GAM
+#| fig-cap: "Smoothing of the credit score"
+#| fig-width: 9
+#| fig-height: 4
+min_ <- min(train2$Credit.score)
+max_ <- max(train2$Credit.score)
+by_ <-  (max_ - min_)/(nrow(train2)-1)
+add <- data.frame(seq(min_, max_, by_))
+colnames(add) <- 'Credit.score'
+db <- train2 %>%
+select(-'Credit.score') %>%
+slice(1)
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+##
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ s(Credit.score) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ Credit.score +  I(Credit.score^2) )
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+mutate(diff = abs(Credit.score - mean(train2$Credit.score))) %>%
+filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+ggplot()+
+geom_line(aes(x=Credit.score, y=pred.gam, color='GAM'), data=db) +
+geom_line(aes(x=Credit.score, y=pred.glm, color='Parametric GLM'), data=db) +
+guides(color = guide_legend(title = "")) +
+labs(x = 'Credit Score',
+y = 'Relativity') +
+theme_classic()
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-IA_GAM
+#| fig-cap: "Smoothing of the age of the insured"
+#| fig-width: 9
+#| fig-height: 4
+min_ <- min(train2$Insured.age)
+max_ <- max(train2$Insured.age)
+by_ <-  (max_ - min_)/(nrow(train2)-1)
+add <- data.frame(seq(min_, max_, by_))
+colnames(add) <- 'Insured.age'
+db <- train2 %>%
+select(-'Insured.age') %>%
+slice(1)
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+##
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ s(Insured.age) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ Insured.age +  log(Insured.age) + I(Insured.age^2) )
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+mutate(diff = abs(Insured.age - mean(train2$Insured.age))) %>%
+filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+ggplot()+
+geom_line(aes(x=Insured.age, y=pred.gam, color='GAM'), data=db) +
+geom_line(aes(x=Insured.age, y=pred.glm, color='Parametric GLM'), data=db) +
+guides(color = guide_legend(title = "")) +
+labs(x = 'Age of the insured',
+y = 'Relativity') +
+theme_classic()
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-CA_GAM
+#| fig-cap: "Smoothing of the age of the car"
+#| fig-width: 9
+#| fig-height: 4
+min_ <- min(train2$Car.age)
+max_ <- max(train2$Car.age)
+by_ <-  (max_ - min_)/(nrow(train2)-1)
+add <- data.frame(seq(min_, max_, by_))
+colnames(add) <- 'Car.age'
+db <- train2 %>%
+select(-'Car.age') %>%
+slice(1)
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+##
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ s(Car.age) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ Car.age + I(Car.age^2) )
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+mutate(diff = abs(Car.age - mean(train2$Car.age))) %>%
+filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+ggplot()+
+geom_line(aes(x=Car.age, y=pred.gam, color='GAM'), data=db) +
+geom_line(aes(x=Car.age, y=pred.glm, color='Parametric GLM'), data=db) +
+guides(color = guide_legend(title = "")) +
+labs(x = 'Age of the car',
+y = 'Relativity') +
+theme_classic()
+#| echo: false
+#| eval: true
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: fig-YNC_GAM
+#| fig-cap: "Smoothing of years without claim"
+#| fig-width: 9
+#| fig-height: 4
+min_ <- min(train2$Years.noclaims)
+max_ <- max(train2$Years.noclaims)
+by_ <-  (max_ - min_)/(nrow(train2)-1)
+add <- data.frame(seq(min_, max_, by_))
+colnames(add) <- 'Years.noclaims'
+db <- train2 %>%
+select(-'Years.noclaims') %>%
+slice(1)
+db <- bind_rows(replicate(nrow(train2), db, simplify = FALSE))
+db <- cbind(db, add)
+##
+score.gam <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ s(Years.noclaims) )
+score.glm <- as.formula(NB_Claim ~ Insured.sex + Marital  +  Car.use + Region + offset(log(expo))
++ Years.noclaims + I(Years.noclaims^2)  + I(Years.noclaims^3) )
+gam.fit <- gam(score.gam, family = poisson(), data = train2)
+glm.fit <- glm(score.glm, family = poisson(), data = train2)
+db$pred.gam <- predict(gam.fit, newdata=db, type='response')
+db$pred.glm <- predict(glm.fit, newdata=db, type='response')
+base <- db %>%
+mutate(diff = abs(Years.noclaims - mean(train2$Years.noclaims))) %>%
+filter(diff == min(diff))
+db$pred.gam <- db$pred.gam/base$pred.gam[1]
+db$pred.glm <- db$pred.glm/base$pred.glm[1]
+ggplot()+
+geom_line(aes(x=Years.noclaims, y=pred.gam, color='GAM'), data=db) +
+geom_line(aes(x=Years.noclaims, y=pred.glm, color='Parametric GLM'), data=db) +
+guides(color = guide_legend(title = "")) +
+labs(x = 'Years.noclaims',
+y = 'Relativity') +
+theme_classic()
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+library(tidyverse)
+library(vtable)
+library(rpart)
+library(repr)
+library(rpart.plot)
+library(gam)
+library(knitr)
+library(kableExtra)
+library(janitor)
+library(glmnet)
+library(scoringRules)
+library(sjPlot)
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Conc3
+#| tbl-cap: "Prediction scores (frequency)"
+load('Data/ResultsSynth.Rda')
+Synth <- Result_all[,1:3]
+load('Data/ResultsReal.Rda')
+load('Data/ResultsSynth.Rda')
+#| echo: false
+#| message: FALSE
+#| warning: FALSE
+#| code-fold: true
+#| label: tbl-Conc3
+#| tbl-cap: "Prediction scores (frequency)"
+load('Data/ResultsSynth.Rda')
+Synth <- Result_all[,1:3]
+load('Data/ResultsReal.Rda')
+load('Data/ResultsReal.Rda')
+load('Data/ResultsSynth.Rda')
+Synth <- Result_all[,1:3]

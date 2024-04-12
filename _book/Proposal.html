@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.353">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Telematics and Algorithmic Bias - Initial Proposal</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./references.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="custom.css">
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./Proposal.html">Appendix</a></li><li class="breadcrumb-item"><a href="./Proposal.html">Initial Proposal</a></li></ol></nav>
+      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+      </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header sidebar-header-stacked">
+      <a href="./index.html" class="sidebar-logo-link">
+      <img src="./images/Cars.png" alt="" class="sidebar-logo py-0 d-lg-inline d-none">
+      </a>
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">Telematics and Algorithmic Bias</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Preface</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./Theory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Theoretical concepts</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text">Claim Frequency</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./DataSummary.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Data Summary</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./VarTraditionelles.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Traditional Covariates</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./VarTelematiques.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Telematic Covariates</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text">Claim Severity</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./severity.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Data Summary</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./severityVarTrad.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Traditional Covariates</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./severityVarTelematique.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Telematic Covariates</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true">
+ <span class="menu-text">Discussion</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./Discussion.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Conclusion</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true">
+ <span class="menu-text">Appendix</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./Proposal.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Initial Proposal</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#outline-of-the-work" id="toc-outline-of-the-work" class="nav-link" data-scroll-target="#outline-of-the-work">Outline of the Work</a>
+  <ul class="collapse">
+  <li><a href="#main-objectives" id="toc-main-objectives" class="nav-link" data-scroll-target="#main-objectives">Main Objectives</a></li>
+  <li><a href="#proposed-approach" id="toc-proposed-approach" class="nav-link" data-scroll-target="#proposed-approach">Proposed Approach</a></li>
+  </ul></li>
+  <li><a href="#timeframe-for-project" id="toc-timeframe-for-project" class="nav-link" data-scroll-target="#timeframe-for-project">Timeframe for Project</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Initial Proposal</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<div class="justify">
+<p>The insurance industry often bases its decisions on statistical models, which, in a nutshell, must determine whether an insured person is risky or not. Therefore, carefully discriminating between risks is a question to establish the fairest possible premium. However, this practice may contravene principles prohibiting discrimination for sensitive variables such as age, gender, marital status, and ethnicity. Thus, the line between a <em>fair</em> actuarial classification and an <em>unfair</em> discrimination is thin and must be studied carefully.</p>
+<p>To illustrate the delicate nature of some variables, we can, for example, refer to the practice of redlining in the United States to show the racial bias in such segmentation. Redlining consisted more precisely of delimiting residential neighborhoods according to their level of desirability by assigning them a color (green, blue, yellow, or red). The Federal Housing Administration (FHA) used this approach to determine eligibility to obtain insurance on a residence’s mortgage <span class="citation" data-cites="chibanda2022defining">(<a href="references.html#ref-chibanda2022defining" role="doc-biblioref">Chibanda 2022</a>)</span>. This approach was subsequently criticized for discriminating against ethnicity since the neighborhoods identified as the least desirable were mainly those where minorities resided. Redlining became illegal under the Fair Housing Act in 1968.</p>
+<p>The use of the gender variable in pricing is also problematic regarding fairness. In 1985, Montana was the first state in the United States to ban its use in the insurance industry following the efforts of feminist groups in the fight for unisex pricing <span class="citation" data-cites="reid">(<a href="references.html#ref-reid" role="doc-biblioref">Reid 1985</a>)</span>. All insurance coverage now has a segmentation that omits the use of gender. Several states, such as California, Hawaii, Massachusetts, and Michigan, have followed this initiative by excluding this variable in calculating automobile insurance premiums. The European Union also banned the use of gender in the estimation of premiums in 2012, and the calculation is now done through variables directly linked to the insured’s driving, such as the brand of the car and the mileage traveled <span class="citation" data-cites="litch">(<a href="references.html#ref-litch" role="doc-biblioref">Lichtenstein 2022</a>)</span>. Because of these changes, several players in the insurance industry, i.e., companies, regulators, and the scientific community, are developing new methodologies, making it possible to include the notion of fairness in models without sacrificing the quality of the latter (see, for example, <span class="citation" data-cites="lindholm2022discrimination">(<a href="references.html#ref-lindholm2022discrimination" role="doc-biblioref">Lindholm et al. 2022</a>)</span> and <span class="citation" data-cites="embrechts2022recent">(<a href="references.html#ref-embrechts2022recent" role="doc-biblioref">Embrechts and Wuthrich 2022</a>)</span>).</p>
+<p>Usage-based insurance (UBI), in which the insured’s premium is estimated by making use of their driving data recorded by an on-board diagnostics (OBD) device (or a smartphone application), has become highly popular in the last decade. Traditionally, automobile insurers have relied mainly upon static attributes related to the vehicle or the insured, which are indirectly related to accident risk. With the rise of telematics technology, it is now feasible for insurers to offer a more customized premium that is more in line with an insured’s risk, which may now be determined by considering the insured’s volume, habits, and style of driving. UBI, or pricing using telematics data, seems likely to be the future standard in automobile insurance, and the market share of UBI products is currently growing quickly. One piece of GPS-collected information that is directly related to the risk insured is distance driven. The relevance of including this variable in ratemaking has been studied by <span class="citation" data-cites="ayuso2014time">(<a href="references.html#ref-ayuso2014time" role="doc-biblioref">Ayuso, Guillen, and Perez-Marin 2014</a>)</span>, <span class="citation" data-cites="ayuso2016using">(<a href="references.html#ref-ayuso2016using" role="doc-biblioref">Ayuso, Guillen, and Marin 2016</a>)</span>, <span class="citation" data-cites="boucher2013pay">(<a href="references.html#ref-boucher2013pay" role="doc-biblioref">Boucher, Perez-Marin, and Santolino 2013</a>)</span> and <span class="citation" data-cites="LEM16">(<a href="references.html#ref-LEM16" role="doc-biblioref">Lemaire, Park, and Wang 2016</a>)</span> among others.</p>
+<p>The proposed research project combines the recent research interests of Professors Boucher and Pigeon. Indeed, as we can see in the <em>Qualifications of the Research Team section</em> below, modeling and pricing in automobile insurance with telematic devices and using fair pricing algorithms in property and casualty insurance are areas of expertise for the two professors. The objective of the project will thus be to see how a driver’s telematic information makes it possible to reduce the importance given to sensitive covariates such as the age and the gender of the insured. Although we do not have on hand the information of the insured concerning his credit score (illegal use for automobile pricing in Ontario), his ethnicity, or his religion, the proposed research project will analyze the importance of the territory residence of the insured as a segmentation variable, information often seen as a sensitive covariate in insurance segmentation.</p>
+</div>
+</section>
+<section id="outline-of-the-work" class="level1">
+<h1>Outline of the Work</h1>
+<section id="main-objectives" class="level2">
+<h2 class="anchored" data-anchor-id="main-objectives">Main Objectives</h2>
+<div class="justify">
+<p>Our main objective is to combine and extend the models developed in <span class="citation" data-cites="oueini">(<a href="references.html#ref-oueini" role="doc-biblioref">Oueini and Pigeon 2023</a>)</span> by including the most critical telematics variables identified in the series of papers by <span class="citation" data-cites="duval1">(<a href="references.html#ref-duval1" role="doc-biblioref">Duval, Boucher, and Pigeon 2022</a>)</span>, <span class="citation" data-cites="DUV23">(<a href="references.html#ref-DUV23" role="doc-biblioref">Duval, Boucher, and Pigeon 2023a</a>)</span> and <span class="citation" data-cites="duval3">(<a href="references.html#ref-duval3" role="doc-biblioref">Duval, Boucher, and Pigeon 2023b</a>)</span>. More specifically:</p>
+<ol type="1">
+<li><p>we plan to precisely and adequately describe, to North American actuaries, the problem of insurance pricing with unjustified discrimination by using real insurance data;</p></li>
+<li><p>we plan to show, for different coverages (collision, comprehensive, accident benefits, etc.), the impact of the introduction of telematics data into automobile insurance pricing algorithms by checking if the additional telematic information reduces the importance given to classic segmentation variables, such as age, gender, or territory;</p></li>
+<li><p>we plan to develop new penalty metrics to measure the level of fairness in a pricing model by first giving an overview of available algorithms penalizing unjustified segmentation.</p></li>
+</ol>
+</div>
+</section>
+<section id="proposed-approach" class="level2">
+<h2 class="anchored" data-anchor-id="proposed-approach">Proposed Approach</h2>
+<div class="justify">
+<section id="telematic-data" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="telematic-data">Telematic Data</h3>
+<p>A portion of the project can be seen as a generalization of the approaches of <span class="citation" data-cites="duval1">(<a href="references.html#ref-duval1" role="doc-biblioref">Duval, Boucher, and Pigeon 2022</a>)</span> and <span class="citation" data-cites="DUV23">(<a href="references.html#ref-DUV23" role="doc-biblioref">Duval, Boucher, and Pigeon 2023a</a>)</span>, where the claims frequency and the claims severity will both be analyzed with telematics data. We will carry out a combination of telematics information with classic segmentation variables for these models. In order to obtain results that can easily be understood and interpreted, we will perform the selection of variables using the algorithms used in <span class="citation" data-cites="duval1">(<a href="references.html#ref-duval1" role="doc-biblioref">Duval, Boucher, and Pigeon 2022</a>)</span> and <span class="citation" data-cites="DUV23">(<a href="references.html#ref-DUV23" role="doc-biblioref">Duval, Boucher, and Pigeon 2023a</a>)</span>, namely the Elastic-net regularization that can be seen as a compromise between Ridge and lasso penalties (see <span class="citation" data-cites="zou2003regression">(<a href="references.html#ref-zou2003regression" role="doc-biblioref">Zou and Hastie 2003</a>)</span>).</p>
+<p>In connection with the conclusions obtained in these papers and those obtained by <span class="citation" data-cites="boucher2020longitudinal">(<a href="references.html#ref-boucher2020longitudinal" role="doc-biblioref">Boucher and Turcotte 2020</a>)</span>, we will give particular importance to the distance traveled by each vehicle for protections linked to at-fault and non-fault accidents. Although maximum speed, average speed, or distracted driving are information that could make it possible to quantify the risk of accidents properly, several scientific articles have shown that the actual distance traveled is probably the most relevant telematics information. The combination of the distance traveled with the classic segmentation variables will thus correspond to our benchmark.</p>
+</section>
+<section id="model-fairness" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="model-fairness">Model Fairness</h3>
+<p><span class="citation" data-cites="oueini">(<a href="references.html#ref-oueini" role="doc-biblioref">Oueini and Pigeon 2023</a>)</span> and <span class="citation" data-cites="grari2022fair">(<a href="references.html#ref-grari2022fair" role="doc-biblioref">Grari, Charpentier, and Detyniecki 2022</a>)</span> suggest several metrics to measure the level of fairness of an actuarial model used in a pricing context. In particular, penalties can be applied during model training to improve some of these metrics. Thus, for example, in <span class="citation" data-cites="oueini">(<a href="references.html#ref-oueini" role="doc-biblioref">Oueini and Pigeon 2023</a>)</span>, a Kullback-Leibler penalty is used to reduce the distortion a pricing model introduces between the accident probability of a sensitive variable (gender and age) observed in the data and predicted by a machine learning model. We will adapt the models of <span class="citation" data-cites="oueini">(<a href="references.html#ref-oueini" role="doc-biblioref">Oueini and Pigeon 2023</a>)</span> to telematics data and then generalize the models to the necessary distributions to see how introducing a fairness penalty impacts the classic covariates.</p>
+</section>
+<section id="analyzed-coverages" class="level3 unnumbered">
+<h3 class="unnumbered anchored" data-anchor-id="analyzed-coverages">Analyzed Coverages</h3>
+<p>Initially, we will analyze the collision coverage only (fault and not-at-fault). Subsequently, the analysis extends to comprehensive coverage for which we conjecture that the impact of telematics will be much less. Finally, we will analyze accident benefits and bodily injury coverages by separating the frequency and severity components. Indeed, for these two coverages, the risk comes in a significant proportion from the severity component linked to the victim’s salary and, therefore, more or less directly to sensitive variables. Thus, we think telematics’s impact will once again be limited.</p>
+</section>
+</div>
+</section>
+</section>
+<section id="timeframe-for-project" class="level1">
+<h1>Timeframe for Project</h1>
+<p>We believe that the entire project can be broken down into milestone stages, defined below:</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" aria-current="page">Data Analysis</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">Covariates Selection</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false">Generalizing Distributions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-4" role="tab" aria-controls="tabset-1-4" aria-selected="false">Fairness Metric</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-5" role="tab" aria-controls="tabset-1-5" aria-selected="false">Other Coverages</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-6-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-6" role="tab" aria-controls="tabset-1-6" aria-selected="false">Final Results</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<ul>
+<li>Collecting and merging the insurance data and the telematic data;</li>
+<li>Analyzing classic and telematic covariates for the number of claims and the cost of the claims (collision coverages);<br>
+</li>
+<li>Summarizing the data using several tables and graphs (an important task so that the report is accessible to all actuaries);</li>
+</ul>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<ul>
+<li>For the claims frequency and the claims severity, partially replicating the results of <span class="citation" data-cites="duval1">(<a href="references.html#ref-duval1" role="doc-biblioref">Duval, Boucher, and Pigeon 2022</a>)</span> and <span class="citation" data-cites="DUV23">(<a href="references.html#ref-DUV23" role="doc-biblioref">Duval, Boucher, and Pigeon 2023a</a>)</span> by doing a covariates selection using GLM-net algorithms or other related approaches;<br>
+</li>
+<li>Analyzing the results to see if the use of telematic data reduces the importance given to classic segmentation variables, such as age, gender, or territory;</li>
+<li>Highlighting the problem of unjustified segmentation in insurance pricing by choosing some insured profiles.</li>
+</ul>
+</div>
+<div id="tabset-1-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-3-tab">
+<ul>
+<li>Generalizing the model for other count distributions that should better fit the number of claims in automobile insurance;<br>
+</li>
+<li>Generalizing the model for other claims severity distributions that should better fit the cost of claims in automobile insurance;</li>
+<li>Revisiting the covariates selection algorithm all distributions.</li>
+</ul>
+</div>
+<div id="tabset-1-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-4-tab">
+<ul>
+<li>Replications and generalisations of the model of <span class="citation" data-cites="oueini">(<a href="references.html#ref-oueini" role="doc-biblioref">Oueini and Pigeon 2023</a>)</span> for claims frequency and for claims severity, and to include telematics information;<br>
+</li>
+<li>Developing new penalty metrics to measure the level of fairness in a pricing model;<br>
+</li>
+<li>Application of the approach for the claims frequency and the claims severity.</li>
+</ul>
+</div>
+<div id="tabset-1-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-5-tab">
+<ul>
+<li>Using the models developped, analyzing the comprehensive coverage for claims frequency and claims severity to see how telematics information is usefull for this coverage;<br>
+</li>
+<li>Generalizing the severity analysis for long-tail distribution to analyse the accident benefits (and the bodily injury) coverage.</li>
+</ul>
+</div>
+<div id="tabset-1-6" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-6-tab">
+<ul>
+<li>Analysis of the results:
+<ul>
+<li>Comparison of models and comparison of parameters estimates;</li>
+<li>Explaining the final models with several insured profiles;</li>
+</ul></li>
+<li>Complete the final report:
+<ul>
+<li>Cleaning all computer codes and adding explanations for all R scripts present in the report.</li>
+</ul></li>
+<li>Discussion and proposal for future generalizations;</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" role="list" style="display: none">
+<div id="ref-ayuso2016using" class="csl-entry" role="listitem">
+Ayuso, Mercedes, Montserrat Guillen, and Ana Maria Perez Marin. 2016. <span>“Using GPS Data to Analyse the Distance Travelled to the First Accident at Fault in Pay-as-You-Drive Insurance.”</span> <em>Transportation Research Part C: Emerging Technologies</em> 68: 160–67.
+</div>
+<div id="ref-ayuso2014time" class="csl-entry" role="listitem">
+Ayuso, Mercedes, Montserrat Guillen, and Ana Maria Perez-Marin. 2014. <span>“Time and Distance to First Accident and Driving Patterns of Young Drivers with Pay-as-You-Drive Insurance.”</span> <em>Accident Analysis &amp; Prevention</em> 73: 125–31.
+</div>
+<div id="ref-boucher2013pay" class="csl-entry" role="listitem">
+Boucher, Jean-Philippe, Ana Maria Perez-Marin, and Miguel Santolino. 2013. <span>“Pay-as-You-Drive Insurance: The Effect of the Kilometers on the Risk of Accident.”</span> In <em>Anales Del Instituto de Actuarios Espanoles</em>, 19:135–54. 3. Instituto de Actuarios Espanoles Madrid.
+</div>
+<div id="ref-boucher2020longitudinal" class="csl-entry" role="listitem">
+Boucher, Jean-Philippe, and Roxane Turcotte. 2020. <span>“A Longitudinal Analysis of the Impact of Distance Driven on the Probability of Car Accidents.”</span> <em>Risks</em> 8 (3): 91.
+</div>
+<div id="ref-chibanda2022defining" class="csl-entry" role="listitem">
+Chibanda, Kudakwashe F. 2022. <span>“Defining Discrimination in Insurance.”</span> <em>Cas Research Paper: A Special Series On Race And Insurance Pricing</em>.
+</div>
+<div id="ref-duval1" class="csl-entry" role="listitem">
+Duval, Francis, Jean-Philippe Boucher, and Mathieu Pigeon. 2022. <span>“How Much Telematics Information Do Insurers Need for Claim Classification?”</span> <em>North American Actuarial Journal</em> 26 (4): 570–90.
+</div>
+<div id="ref-DUV23" class="csl-entry" role="listitem">
+———. 2023a. <span>“Enhancing Claim Classification with Feature Extraction from Anomaly-Detection-Derived Routine and Peculiarity Profiles.”</span> <em>Journal of Risk and Insurance</em> 90 (2): 421–58.
+</div>
+<div id="ref-duval3" class="csl-entry" role="listitem">
+———. 2023b. <span>“Telematics Combined Actuarial Neural Networks for Cross-Sectional and Longitudinal Claim Count Data.”</span> <em>arXiv Preprint arXiv:2308.01729</em>.
+</div>
+<div id="ref-embrechts2022recent" class="csl-entry" role="listitem">
+Embrechts, Paul, and Mario V Wuthrich. 2022. <span>“Recent Challenges in Actuarial Science.”</span> <em>Annual Review of Statistics and Its Application</em> 9: 119–40.
+</div>
+<div id="ref-grari2022fair" class="csl-entry" role="listitem">
+Grari, Vincent, Arthur Charpentier, and Marcin Detyniecki. 2022. <span>“A Fair Pricing Model via Adversarial Learning.”</span> <em>arXiv Preprint arXiv:2202.12008</em>.
+</div>
+<div id="ref-LEM16" class="csl-entry" role="listitem">
+Lemaire, Jean, Sojung Carol Park, and Kili C. Wang. 2016. <span>“The Use of Annual Mileage as a Rating Variable.”</span> <em>ASTIN Bulletin</em> 46 (1): 39–69.
+</div>
+<div id="ref-litch" class="csl-entry" role="listitem">
+Lichtenstein, Ellen. 2022. <span>“Which States Ban Gender-Rating in Insurance Premiums?”</span> <em>AgentSync</em>.
+</div>
+<div id="ref-lindholm2022discrimination" class="csl-entry" role="listitem">
+Lindholm, Mathias, Ronald Richman, Andreas Tsanakas, and Mario V Wuthrich. 2022. <span>“Discrimination-Free Insurance Pricing.”</span> <em>ASTIN Bulletin: The Journal of the IAA</em> 52 (1): 55–89.
+</div>
+<div id="ref-oueini" class="csl-entry" role="listitem">
+Oueini, Christian, and Mathieu Pigeon. 2023. <span>“Modèles Equitables de Tarification En Assurance Automobile.”</span> <em>Master’s Thesis - Universite Du Quebec à Montreal</em>.
+</div>
+<div id="ref-reid" class="csl-entry" role="listitem">
+Reid, T. R. 1985. <span>“Montana Implements Policy of ‘Unisex‘ Insurance.”</span> <em>Washington Post</em>.
+</div>
+<div id="ref-zou2003regression" class="csl-entry" role="listitem">
+Zou, Hui, and Trevor Hastie. 2003. <span>“Regression Shrinkage and Selection via the Elastic Net, with Applications to Microarrays.”</span> <em>Journal of the Royal Statistical Society Series B</em> 67: 301–20.
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./references.html" class="pagination-link">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">References</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+</body></html>

@@ -1,0 +1,58 @@
+project:
+  type: book
+
+
+book:
+  title: "Telematics and Algorithmic Bias"
+  subtitle: "Balancing Risk Assessment and Discrimination Mitigation in Insurance Pricing"
+  sidebar: 
+    logo: images/Cars.png
+    search: true
+  date: "2024-04-11"
+  author:
+  - name: Prof. Jean-Philippe Boucher, Ph.D.
+    email: boucher.jean-philippe@uqam.ca
+  - name: Prof. Mathieu Pigeon, Ph.D.
+    email: pigeon.mathieu2@uqam.ca
+  chapters:
+    - index.qmd
+    - Theory.qmd
+    - part: "Claim Frequency"
+      chapters: 
+        - DataSummary.qmd
+        - VarTraditionelles.qmd
+        - VarTelematiques.qmd
+    - part: "Claim Severity"
+      chapters: 
+        - severity.qmd
+        - severityVarTrad.qmd
+        - severityVarTelematique.qmd
+    - part: 'Discussion'
+      chapters:
+        - Discussion.qmd
+    - references.qmd
+    - part: "Appendix"
+      chapters: 
+        - Proposal.qmd
+bibliography: bibtex.bib
+
+freeze: auto 
+
+format:
+  html:
+    embed-resources: false
+    css: custom.css
+    theme: sandstone
+    fontsize: 1.0em
+    linestretch: 1.4
+    toc: true
+    grid:
+      sidebar-width: 250px
+      body-width: 1000px
+      margin-width: 250px
+      gutter-width: 1.5rem
+  pdf:
+    documentclass: scrreprt
+
+editor: source
+

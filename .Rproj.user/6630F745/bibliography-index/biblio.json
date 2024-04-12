@@ -1,0 +1,1234 @@
+{
+    "sources": [
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana Maria"
+                }
+            ],
+            "container-title": "Accident Analysis & Prevention",
+            "id": "ayuso2014time",
+            "issued": {
+                "date-parts": [
+                    [
+                        2014
+                    ]
+                ]
+            },
+            "page": "125-131",
+            "publisher": "Elsevier",
+            "title": "Time and distance to first accident and driving patterns of young drivers with pay-as-you-drive insurance",
+            "type": "article-journal",
+            "volume": "73"
+        },
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Marin",
+                    "given": "Ana Maria Perez"
+                }
+            ],
+            "container-title": "Transportation research part C: emerging technologies",
+            "id": "ayuso2016using",
+            "issued": {
+                "date-parts": [
+                    [
+                        2016
+                    ]
+                ]
+            },
+            "page": "160-167",
+            "publisher": "Elsevier",
+            "title": "Using GPS data to analyse the distance travelled to the first accident at fault in pay-as-you-drive insurance",
+            "type": "article-journal",
+            "volume": "68"
+        },
+        {
+            "author": [
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana Maria"
+                },
+                {
+                    "family": "Santolino",
+                    "given": "Miguel"
+                }
+            ],
+            "collection-number": "3",
+            "container-title": "Anales del instituto de actuarios espanoles",
+            "id": "boucher2013pay",
+            "issued": {
+                "date-parts": [
+                    [
+                        2013
+                    ]
+                ]
+            },
+            "page": "135-154",
+            "publisher": "Instituto de Actuarios Espanoles Madrid",
+            "title": "Pay-as-you-drive insurance: The effect of the kilometers on the risk of accident",
+            "title-short": "Pay-as-you-drive insurance",
+            "type": "paper-conference",
+            "volume": "19"
+        },
+        {
+            "author": [
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Turcotte",
+                    "given": "Roxane"
+                }
+            ],
+            "container-title": "Risks",
+            "id": "boucher2020longitudinal",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2020
+                    ]
+                ]
+            },
+            "page": "91",
+            "publisher": "MDPI",
+            "title": "A longitudinal analysis of the impact of distance driven on the probability of car accidents",
+            "type": "article-journal",
+            "volume": "8"
+        },
+        {
+            "author": [
+                {
+                    "family": "Chibanda",
+                    "given": "Kudakwashe F"
+                }
+            ],
+            "container-title": "Cas Research Paper: A Special Series On Race And Insurance Pricing",
+            "id": "chibanda2022defining",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "title": "Defining discrimination in insurance",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Duval",
+                    "given": "Francis"
+                },
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Pigeon",
+                    "given": "Mathieu"
+                }
+            ],
+            "container-title": "North American Actuarial Journal",
+            "id": "duval1",
+            "issue": "4",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "570-590",
+            "publisher": "Taylor & Francis",
+            "title": "How much telematics information do insurers need for claim classification?",
+            "type": "article-journal",
+            "volume": "26"
+        },
+        {
+            "author": [
+                {
+                    "family": "Duval",
+                    "given": "Francis"
+                },
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Pigeon",
+                    "given": "Mathieu"
+                }
+            ],
+            "container-title": "arXiv preprint arXiv:2308.01729",
+            "id": "duval3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2023
+                    ]
+                ]
+            },
+            "title": "Telematics combined actuarial neural networks for cross-sectional and longitudinal claim count data",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Embrechts",
+                    "given": "Paul"
+                },
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "Annual Review of Statistics and Its Application",
+            "id": "embrechts2022recent",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "119-140",
+            "publisher": "Annual Reviews",
+            "title": "Recent challenges in actuarial science",
+            "type": "article-journal",
+            "volume": "9"
+        },
+        {
+            "author": [
+                {
+                    "family": "Grari",
+                    "given": "Vincent"
+                },
+                {
+                    "family": "Charpentier",
+                    "given": "Arthur"
+                },
+                {
+                    "family": "Detyniecki",
+                    "given": "Marcin"
+                }
+            ],
+            "container-title": "arXiv preprint arXiv:2202.12008",
+            "id": "grari2022fair",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "title": "A fair pricing model via adversarial learning",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Lichtenstein",
+                    "given": "Ellen"
+                }
+            ],
+            "container-title": "AgentSync",
+            "id": "litch",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "title": "Which states ban gender-rating in insurance premiums?",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Lindholm",
+                    "given": "Mathias"
+                },
+                {
+                    "family": "Richman",
+                    "given": "Ronald"
+                },
+                {
+                    "family": "Tsanakas",
+                    "given": "Andreas"
+                },
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "ASTIN Bulletin: The Journal of the IAA",
+            "id": "lindholm2022discrimination",
+            "issue": "1",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "55-89",
+            "publisher": "Cambridge University Press",
+            "title": "Discrimination-free insurance pricing",
+            "type": "article-journal",
+            "volume": "52"
+        },
+        {
+            "author": [
+                {
+                    "family": "Oueini",
+                    "given": "Christian"
+                },
+                {
+                    "family": "Pigeon",
+                    "given": "Mathieu"
+                }
+            ],
+            "container-title": "Master’s Thesis - Universite du Quebec à Montreal",
+            "id": "oueini",
+            "issued": {
+                "date-parts": [
+                    [
+                        2023
+                    ]
+                ]
+            },
+            "title": "Modèles equitables de tarification en assurance automobile",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Reid",
+                    "given": "T. R."
+                }
+            ],
+            "container-title": "Washington Post",
+            "id": "reid",
+            "issued": {
+                "date-parts": [
+                    [
+                        1985
+                    ]
+                ]
+            },
+            "title": "Montana implements policy of ‘unisex‘ insurance.",
+            "type": "article-journal"
+        },
+        {
+            "author": [
+                {
+                    "family": "Vickrey",
+                    "given": "William"
+                }
+            ],
+            "container-title": "Law and Contemporary Problems",
+            "id": "vickrey1968automobile",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        1968
+                    ]
+                ]
+            },
+            "page": "464-487",
+            "publisher": "JSTOR",
+            "title": "Automobile accidents, tort law, externalities, and insurance: An economist’s critique",
+            "title-short": "Automobile accidents, tort law, externalities, and insurance",
+            "type": "article-journal",
+            "volume": "33"
+        },
+        {
+            "author": [
+                {
+                    "family": "Zou",
+                    "given": "Hui"
+                },
+                {
+                    "family": "Hastie",
+                    "given": "Trevor"
+                }
+            ],
+            "container-title": "Journal of the Royal Statistical Society Series B",
+            "id": "zou2003regression",
+            "issued": {
+                "date-parts": [
+                    [
+                        2003
+                    ]
+                ]
+            },
+            "page": "301-20",
+            "title": "Regression shrinkage and selection via the elastic net, with applications to microarrays",
+            "type": "article-journal",
+            "volume": "67"
+        },
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana Maria"
+                }
+            ],
+            "container-title": "Accident Analysis & Prevention",
+            "id": "AYU14",
+            "issued": {
+                "date-parts": [
+                    [
+                        2014
+                    ]
+                ]
+            },
+            "page": "125-131",
+            "title": "Timeand distance to first accident and driving patterns of young drivers with pay-as-you-drive insurance",
+            "type": "article-journal",
+            "volume": "73"
+        },
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana Maria"
+                }
+            ],
+            "container-title": "Transportation Research Part C: Emerging Technologies",
+            "id": "AYU16",
+            "issued": {
+                "date-parts": [
+                    [
+                        2016
+                    ]
+                ]
+            },
+            "page": "160-167",
+            "title": "Using GPS data to analyse the distance travelled to the first accident at fault in pay-as-you-drive insurance",
+            "type": "article-journal",
+            "volume": "68"
+        },
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana Maria"
+                }
+            ],
+            "container-title": "Risks",
+            "id": "AYU16a",
+            "issue": "2",
+            "issued": {
+                "date-parts": [
+                    [
+                        2016
+                    ]
+                ]
+            },
+            "title": "Telematics and gender discrimination: Some usage-based evidence on whether men’s risk of accidents differs from women’s",
+            "title-short": "Telematics and gender discrimination",
+            "type": "article-journal",
+            "volume": "4"
+        },
+        {
+            "author": [
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Nielsen",
+                    "given": "Jens Perch"
+                }
+            ],
+            "container-title": "Transportation",
+            "id": "AYU19",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2019
+                    ]
+                ]
+            },
+            "page": "735-752",
+            "title": "Improving automobile insurance ratemaking using telematics: Incorporating mileage and driver behaviour data",
+            "title-short": "Improving automobile insurance ratemaking using telematics",
+            "type": "article-journal",
+            "volume": "46"
+        },
+        {
+            "author": [
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Côte",
+                    "given": "Steven"
+                },
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                }
+            ],
+            "container-title": "Risks",
+            "id": "BOU17",
+            "issue": "4",
+            "issued": {
+                "date-parts": [
+                    [
+                        2017
+                    ]
+                ]
+            },
+            "title": "Exposure as duration and distance in telematics motor insurance using generalized additive models",
+            "type": "article-journal",
+            "volume": "5"
+        },
+        {
+            "author": [
+                {
+                    "family": "Chibanda",
+                    "given": "Kudakwashe F."
+                }
+            ],
+            "container-title": "CAS Research Paper: A Special Series On Race And Insurance Pricing",
+            "id": "CHI22",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "",
+            "title": "Defining discrimination in insurance",
+            "type": "article-journal",
+            "volume": ""
+        },
+        {
+            "author": [
+                {
+                    "family": "Duval",
+                    "given": "Francis"
+                },
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Pigeon",
+                    "given": "Mathieu"
+                }
+            ],
+            "container-title": "Journal of Risk and Insurance",
+            "id": "DUV23",
+            "issue": "2",
+            "issued": {
+                "date-parts": [
+                    [
+                        2023
+                    ]
+                ]
+            },
+            "page": "421-458",
+            "publisher": "Wiley Online Library",
+            "title": "Enhancing claim classification with feature extraction from anomaly-detection-derived routine and peculiarity profiles",
+            "type": "article-journal",
+            "volume": "90"
+        },
+        {
+            "author": [
+                {
+                    "family": "Czado",
+                    "given": "Claudia"
+                },
+                {
+                    "family": "Gneiting",
+                    "given": "Tilmann"
+                },
+                {
+                    "family": "Held",
+                    "given": "Leonhard"
+                }
+            ],
+            "container-title": "Biometrics",
+            "id": "CZA09",
+            "issue": "4",
+            "issued": {
+                "date-parts": [
+                    [
+                        2009
+                    ]
+                ]
+            },
+            "page": "1254-1261",
+            "title": "Predictive model assessment for count data",
+            "type": "article-journal",
+            "volume": "65"
+        },
+        {
+            "author": [
+                {
+                    "family": "Embrechts",
+                    "given": "Paul"
+                },
+                {
+                    "family": "Wüthrich",
+                    "given": "Mario V."
+                }
+            ],
+            "container-title": "Annual Review of Statistics and Its Application",
+            "id": "EMB22",
+            "issue": "",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "119-140",
+            "title": "Recent challenges in actuarial science",
+            "type": "article-journal",
+            "volume": "9"
+        },
+        {
+            "author": [
+                {
+                    "family": "Gao",
+                    "given": "Guangyuan"
+                },
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "Risks",
+            "id": "GAO19",
+            "issue": "1",
+            "issued": {
+                "date-parts": [
+                    [
+                        2019
+                    ]
+                ]
+            },
+            "title": "Convolutional neural network classification of telematics car driving data",
+            "type": "article-journal",
+            "volume": "7"
+        },
+        {
+            "author": [
+                {
+                    "family": "Gao",
+                    "given": "Guangyuan"
+                },
+                {
+                    "family": "Meng",
+                    "given": "Shengwang"
+                },
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "Scandinavian Actuarial Journal",
+            "id": "GAO19a",
+            "issue": "2",
+            "issued": {
+                "date-parts": [
+                    [
+                        2019
+                    ]
+                ]
+            },
+            "page": "143-162",
+            "title": "Claims frequency modeling using telematics car driving data",
+            "type": "article-journal",
+            "volume": "2019"
+        },
+        {
+            "author": [
+                {
+                    "family": "Gao",
+                    "given": "Guangyuan"
+                },
+                {
+                    "family": "Wang",
+                    "given": "He"
+                },
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "Machine Learning",
+            "id": "GAO22",
+            "issue": "2",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "243-272",
+            "title": "Boosting poisson regression models with telematics car driving data",
+            "type": "article-journal",
+            "volume": "111"
+        },
+        {
+            "author": [
+                {
+                    "family": "Geyer",
+                    "given": "Alois"
+                },
+                {
+                    "family": "Kremslehner",
+                    "given": "Daniela"
+                },
+                {
+                    "family": "Muermann",
+                    "given": "Alexander"
+                }
+            ],
+            "container-title": "Journal of Risk and Insurance",
+            "id": "GEY20",
+            "issue": "4",
+            "issued": {
+                "date-parts": [
+                    [
+                        2020
+                    ]
+                ]
+            },
+            "page": "969-995",
+            "title": "Asymmetric information in automobile insurance: Evidence from driving behavior",
+            "title-short": "Asymmetric information in automobile insurance",
+            "type": "article-journal",
+            "volume": "87"
+        },
+        {
+            "author": [
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Nielsen",
+                    "given": "Jens Perch"
+                },
+                {
+                    "family": "Ayuso",
+                    "given": "Mercedes"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana M"
+                }
+            ],
+            "container-title": "Risk analysis",
+            "id": "GUI19",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2019
+                    ]
+                ]
+            },
+            "page": "662-672",
+            "title": "The use of telematics devices to improve automobile insurance rates",
+            "type": "article-journal",
+            "volume": "39"
+        },
+        {
+            "author": [
+                {
+                    "family": "Guillen",
+                    "given": "Montserrat"
+                },
+                {
+                    "family": "Nielsen",
+                    "given": "Jens Perch"
+                },
+                {
+                    "family": "Perez-Marin",
+                    "given": "Ana M"
+                }
+            ],
+            "container-title": "Journal of Risk and Insurance",
+            "id": "GUI21",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2021
+                    ]
+                ]
+            },
+            "page": "569-589",
+            "title": "Near-miss telematics in motor insurance",
+            "type": "article-journal",
+            "volume": "88"
+        },
+        {
+            "author": [
+                {
+                    "family": "Huang",
+                    "given": "Yifan"
+                },
+                {
+                    "family": "Meng",
+                    "given": "Shengwang"
+                }
+            ],
+            "container-title": "Decision Support Systems",
+            "id": "HUA19",
+            "issued": {
+                "date-parts": [
+                    [
+                        2019
+                    ]
+                ]
+            },
+            "page": "113-156",
+            "title": "Automobile insurance classification ratemaking based on telematics driving data",
+            "type": "article-journal",
+            "volume": "127"
+        },
+        {
+            "author": [
+                {
+                    "family": "Lemaire",
+                    "given": "Jean"
+                },
+                {
+                    "family": "Park",
+                    "given": "Sojung Carol"
+                },
+                {
+                    "family": "Wang",
+                    "given": "Kili C."
+                }
+            ],
+            "container-title": "ASTIN Bulletin",
+            "id": "LEM16",
+            "issue": "1",
+            "issued": {
+                "date-parts": [
+                    [
+                        2016
+                    ]
+                ]
+            },
+            "page": "39-69",
+            "title": "The use of annual mileage as a rating variable",
+            "type": "article-journal",
+            "volume": "46"
+        },
+        {
+            "author": [
+                {
+                    "family": "Lindholm",
+                    "given": "Mathias"
+                },
+                {
+                    "family": "Richman",
+                    "given": "Ronald"
+                },
+                {
+                    "family": "Tsanakas",
+                    "given": "Andreas"
+                },
+                {
+                    "family": "Wüthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "ASTIN Bulletin",
+            "id": "LIN22",
+            "issue": "1",
+            "issued": {
+                "date-parts": [
+                    [
+                        2022
+                    ]
+                ]
+            },
+            "page": "55-89",
+            "title": "Discrimination-free insurance pricing",
+            "type": "article-journal",
+            "volume": "52"
+        },
+        {
+            "author": [
+                {
+                    "family": "Paefgen",
+                    "given": "Johannes"
+                },
+                {
+                    "family": "Staake",
+                    "given": "Thorsten"
+                },
+                {
+                    "family": "Thiesse",
+                    "given": "Frederic"
+                }
+            ],
+            "container-title": "Decision Support Systems",
+            "id": "PAE13",
+            "issued": {
+                "date-parts": [
+                    [
+                        2013
+                    ]
+                ]
+            },
+            "page": "192-201",
+            "publisher": "Elsevier",
+            "title": "Evaluation and aggregation of pay-as-you-drive insurance rate factors: A classification analysis approach",
+            "title-short": "Evaluation and aggregation of pay-as-you-drive insurance rate factors",
+            "type": "article-journal",
+            "volume": "56"
+        },
+        {
+            "author": [
+                {
+                    "family": "Paefgen",
+                    "given": "Johannes"
+                },
+                {
+                    "family": "Staake",
+                    "given": "Thorsten"
+                },
+                {
+                    "family": "Fleisch",
+                    "given": "Elgar"
+                }
+            ],
+            "container-title": "Transportation Research Part A: Policy and Practice",
+            "id": "PAE14",
+            "issued": {
+                "date-parts": [
+                    [
+                        2014
+                    ]
+                ]
+            },
+            "page": "27-40",
+            "publisher": "Elsevier",
+            "title": "Multivariate exposure modeling of accident risk: Insights from pay-as-you-drive insurance data",
+            "title-short": "Multivariate exposure modeling of accident risk",
+            "type": "article-journal",
+            "volume": "61"
+        },
+        {
+            "author": [
+                {
+                    "family": "So",
+                    "given": "Banghee"
+                },
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Valdez",
+                    "given": "Emiliano A"
+                }
+            ],
+            "container-title": "ASTIN Bulletin: The Journal of the IAA",
+            "id": "SO21",
+            "issue": "3",
+            "issued": {
+                "date-parts": [
+                    [
+                        2021
+                    ]
+                ]
+            },
+            "page": "719-751",
+            "publisher": "Cambridge University Press",
+            "title": "Cost-sensitive multi-class adaboost for understanding driving behavior based on telematics",
+            "type": "article-journal",
+            "volume": "51"
+        },
+        {
+            "author": [
+                {
+                    "family": "Tselentis",
+                    "given": "Dimitrios I"
+                },
+                {
+                    "family": "Yannis",
+                    "given": "George"
+                },
+                {
+                    "family": "Vlahogianni",
+                    "given": "Eleni I"
+                }
+            ],
+            "container-title": "Transportation Research Procedia",
+            "id": "TSE16",
+            "issued": {
+                "date-parts": [
+                    [
+                        2016
+                    ]
+                ]
+            },
+            "page": "362-371",
+            "publisher": "Elsevier",
+            "title": "Innovative insurance schemes: Pay as/how you drive",
+            "title-short": "Innovative insurance schemes",
+            "type": "article-journal",
+            "volume": "14"
+        },
+        {
+            "author": [
+                {
+                    "family": "Verbelen",
+                    "given": "Roel"
+                },
+                {
+                    "family": "Antonio",
+                    "given": "Katrien"
+                },
+                {
+                    "family": "Claeskens",
+                    "given": "Gerda"
+                }
+            ],
+            "container-title": "Journal of the Royal Statistical Society Series C: Applied Statistics",
+            "id": "VER17",
+            "issue": "5",
+            "issued": {
+                "date-parts": [
+                    [
+                        2018
+                    ]
+                ]
+            },
+            "page": "1275-1304",
+            "publisher": "Oxford University Press",
+            "title": "Unravelling the predictive power of telematics data in car insurance pricing",
+            "type": "article-journal",
+            "volume": "67"
+        },
+        {
+            "author": [
+                {
+                    "family": "Wuthrich",
+                    "given": "Mario V"
+                }
+            ],
+            "container-title": "European Actuarial Journal",
+            "id": "WUT17",
+            "issued": {
+                "date-parts": [
+                    [
+                        2017
+                    ]
+                ]
+            },
+            "page": "89-108",
+            "publisher": "Springer",
+            "title": "Covariate selection from telematics car driving data",
+            "type": "article-journal",
+            "volume": "7"
+        },
+        {
+            "author": [
+                {
+                    "family": "Boucher",
+                    "given": "Jean-Philippe"
+                },
+                {
+                    "family": "Denuit",
+                    "given": "Michel"
+                }
+            ],
+            "container-title": "Blätter der DGVFM",
+            "id": "boucher2007duration",
+            "issue": "1",
+            "issued": {
+                "date-parts": [
+                    [
+                        2007
+                    ]
+                ]
+            },
+            "page": "29-45",
+            "publisher": "Springer",
+            "title": "Duration dependence models for claim counts",
+            "type": "article-journal",
+            "volume": "28"
+        },
+        {
+            "author": [
+                {
+                    "family": "Wu",
+                    "given": "Cheng-Sheng Peter"
+                },
+                {
+                    "family": "Guszcza",
+                    "given": "JC"
+                }
+            ],
+            "container-title": "Proceedings of the casualty actuarial society",
+            "id": "wu2003does",
+            "issued": {
+                "date-parts": [
+                    [
+                        2003
+                    ]
+                ]
+            },
+            "page": "113-138",
+            "title": "Does credit score really explain insurance losses? Multivariate analysis from a data mining point of view",
+            "type": "paper-conference"
+        },
+        {
+            "author": [
+                {
+                    "family": "Hastie",
+                    "given": "Trevor"
+                },
+                {
+                    "family": "Tibshirani",
+                    "given": "Robert"
+                },
+                {
+                    "family": "Friedman",
+                    "given": "Jerome H"
+                },
+                {
+                    "family": "Friedman",
+                    "given": "Jerome H"
+                }
+            ],
+            "id": "HAS09",
+            "issued": {
+                "date-parts": [
+                    [
+                        2009
+                    ]
+                ]
+            },
+            "publisher": "Springer",
+            "title": "The elements of statistical learning: Data mining, inference, and prediction",
+            "title-short": "The elements of statistical learning",
+            "type": "book",
+            "volume": "2"
+        },
+        {
+            "author": [
+                {
+                    "family": "Gabrielli",
+                    "given": "Andrea"
+                },
+                {
+                    "family": "V. Wuthrich",
+                    "given": "Mario"
+                }
+            ],
+            "container-title": "Risks",
+            "id": "GAB18",
+            "issue": "2",
+            "issued": {
+                "date-parts": [
+                    [
+                        2018
+                    ]
+                ]
+            },
+            "page": "29",
+            "publisher": "MDPI",
+            "title": "An individual claims history simulation machine",
+            "type": "article-journal",
+            "volume": "6"
+        },
+        {
+            "author": [
+                {
+                    "family": "Lemaire",
+                    "given": "Jean"
+                }
+            ],
+            "id": "lemaire1985",
+            "issued": {
+                "date-parts": [
+                    [
+                        1985
+                    ]
+                ]
+            },
+            "publisher": "Boston: Kluwer",
+            "title": "Automobile insurance: Actuarial models",
+            "title-short": "Automobile insurance",
+            "type": "book"
+        }
+    ],
+    "project_biblios": [
+        "bibtex.bib"
+    ]
+}

@@ -1,0 +1,79 @@
+# Theoretical concepts
+
+
+
+## Ratemaking Theory
+
+For an insurance contract $t$, $t=1, \ldots, T$, we define the following components:  
+
+- the random variable $N_{t}$ represents the annual claims number;    
+
+- for $n_{t} = n > 0$, let $\boldsymbol{Z}_{t} = \left(Z_{t,1}, \ldots, Z_{t, n}\right)$ be the random vector of claims costs associated with this contract. We define this vector only for a positive observed claims number;    
+
+- the premium is generally calculated considering specific observable characteristics of each contract. We denote these characteristics by  $\boldsymbol{X}_{t} =\left(x_{t, 0}, \ldots ,x_{t,q}\right)$;  
+
+- the random variable $Y_{t}$ represents total cost associated with contract $t$:  
+
+$$Y_{t}= 
+\begin{cases} 
+\sum_{k=1}^{N_{t}}Z_{t,k}&\text{if  $N_{t} >0$}\\ \\
+	0 & \text{if $N_{t}=0$.}
+\end{cases}$$
+
+An insured person exchanges his risk $Y_t$ against a constant $\pi$ corresponding to an insurance premium. Generally, in actuarial science, we minimize the squared error $\min_p E[(Y_t-p)^2|\boldsymbol{X}_{t}]$ to obtain the premium: $\pi_{t}^{(Y)} = E[Y_t|\boldsymbol{X}_{t}]$. We can consider two strategies to evaluate this value:   
+
+  1) he frequency-severity approach where we multiply the frequency component premium and the severity component premium according to some assumptions, i.e., 
+  $$\underbrace{E[Y_{t}|\boldsymbol{X}_{t}]}_{\pi_{t}^{(Y)}} = \underbrace{E[N_{t}|\boldsymbol{X}_{t}]}_{\pi_{t}^{(N)}}\underbrace{E[Z_{t,k}|\boldsymbol{X}_{t}]}_{\pi_{t}^{(Z)}}.$$ 
+  In this approach, for a contract $t$, we generally assume independence between the frequency and the severity components. Moreover, we assume that $Z_{t,k}|\boldsymbol{X}_{t}$ are identically distributed.  
+
+2) The conditional approach where we directly model the total loss distribution, i.e.,  
+$$\pi_{t}^{(Y)} = E[Y_{t}|\boldsymbol{X}_{t}] = \int y f_{Y_{t}|\boldsymbol{X}_{t}}(y) \, dy.$$
+  Although this approach is possible, usually using a Tweedie family distribution, it complicates the interpretation of the results. For example, the effect of the same covariate on severity may hide the effect of a covariate on frequency.
+
+The Poisson distribution is the base model for the number of claims in P\&C insurance, which has valuable and well-known statistical properties. The probability mass function is  
+
+$$\Pr(N_{t} = n| \boldsymbol{X}_{t}) = \left(\lambda_{i,t}\right)^n\exp\left(-\lambda_{i,t}\right)/n!,\, n = 0, 1, 2, \ldots,$$
+
+where $\lambda_t$ is a function. Traditionally, we assume a log-linear relationship between the mean parameter and the policyholder's and claim's characteristics such as sex, age, and marital status, e.g., $\lambda_{t} = \exp\left(\boldsymbol{X}_{t}\boldsymbol{\beta}\right)$ and $\boldsymbol{\beta}$ is a column vector containing parameters. The Poisson distribution implies equidispersion, i.e., $E[N_{t}| \boldsymbol{X}_{t}] = Var[N_{t}| \boldsymbol{X}_{t}]$ which is, usually, a too strong assumption in ratemaking. However, for our project, we restrict ourselves to the overdispersed Poisson, where $Var[N_{t}| \boldsymbol{X}_{t}] = \phi  E[N_{t}| \boldsymbol{X}_{t}] >   E[N_{t}| \boldsymbol{X}_{t}]$.
+
+For our analysis of claim severity, we will use the Gamma distribution. The probability density function is  
+
+$$f_{Z|\boldsymbol{X}_{t}}(z) = \frac{z^{\alpha - 1}e^{-z/\theta}}{\Gamma(\alpha)\theta^\alpha},\, z >  0,$$
+where $\alpha$ is the shape parameter and $\theta$ is the scale parameter. The expected value is $\alpha\theta$ and the variance is $\alpha\theta^2$. Usually, severity is less heterogeneous than frequency, and many available covariates have little impact on the prediction. Beyond the Gamma distribution, the inverse Gaussian distribution is also a possibility to consider. However, with a cubic variance, the possibility of having statistically significant estimators is even lower.
+
+## Goodness of fit
+
+The idea of the prediction score is to obtain a numerical value to assess the quality of a model's prediction on new data. By convention, we assume the objective is to minimize the prediction score. More specifically, to evaluate the model $P$, we calculate a penalty $s(P, x)$ to determine the prediction error.
+
+For a model $P$, we get the model's prediction score, $S(P)$, by taking the average (or the sum) penalty over $x$ observations in a database (which has ever been used to estimate any parameters or properties of the model $P$):  
+$$S(P) = \frac{1}{n} \sum_{i=1}^n s(P, x_i).$$ 
+
+We can list some relevant penalties:  
+
+- Logarithmic penalty: $$\text{logs}(P, x) = -\log(\Pr(N = x)),$$ where $\Pr()$ is the probability mass function under model $P$, or
+    $$\text{logs}(P, x) = -\log(f_Z(x)),$$ where $f_Z()$ is the probability density function under model $P$;    
+
+- Quadratic penalty: $$\text{quad}(P, x) = -2 \Pr(N = x) + \left(\sum_{j=0}^{\infty} \Pr(N = j)^2\right)^2,$$ where $\Pr()$ is the probability mass function under model $P$;  
+
+- Squared error penalty: $$\text{sq.err}(P, x) = (x - \lambda_P)^2,$$ where $\lambda_P$ is the predicted value under model $P$;  
+
+- Spherical penalty: $$\text{sph}(P, x) = - \frac{\Pr(N =x )}{\sum_{j=0}^{\infty} \Pr(N = j)^2},$$ where $\Pr()$ is the probability mass function under model $P$;  
+- Poisson Deviance penalty: $$\text{dev.poi}(P, x) = 2\left( x \ln\left(\frac{x}{\lambda_P}\right) + (x - \lambda_P) \right),$$ where $\lambda_P$ is the predicted value under model $P$.  
+
+For more details on the properties of scores and the assessment of counting models, one can consult [@CZA09].
+
+## Modelling approaches
+
+This paper separately models the frequency and severity components using traditional, telematics, and sensitive explanatory variables. In a regression context, we have a database of size  $n$: $\{z_i; \mathbf{x}_i\}_{i = 1, 2,  \ldots, n}$, where $\mathbf{x}_i$ is a vector on size $q$ of covariates (continuous and categorical) and $z_i$ is the response variable (e.g., the severity of a claim). The objective is to predict the value of the response variable $y^*$ for a new observation whose covariates are $\mathbf{x}^*$.
+
+We have selected two families of models:  
+
+1) **GLM-net**: a parametric model for which the interpretation of the parameters is simple. We define a generalized linear model (GLM) with the following structure:
+$$g(E[Y]) = \beta_0  + \sum_{j=1}^q \beta_jx_{j},$$
+where $g()$ is the link function. In this report, we always assume a logarithmic link, i.e.,
+$$E[Y] = e^{\beta_0  + \sum_{j=1}^q \beta_jx_{j}}.$$
+We add an Elastic-net regularization to this model to select the covariates and estimate parameters. This method is seen as a combination of Lasso and Ridge regressions, and we refer to [@HAS09] for more details about this approach. One of the advantages of this approach is that it solves the redundancy of variables and the multicollinearity of risk factors. The idea of the procedure is to impose constraints on the coefficients of the model. Excluding the intercept from the procedure, the constraint to be added to the log-likelihood score to be maximized is expressed as:
+$$\left( \alpha \sum_{j=1}^{q+1}|\beta_j| + \frac{1-\alpha}{2}\sum_{j=1}^{q+1}\beta_j^{2}\right) \leq \lambda, \, \lambda > 0, \, 0 \leq \alpha \leq 1.$$
+This penalty constraint depends on the values chosen for the parameters $\alpha$ and $\lambda$. If $\alpha = 0$, the Elastic-net method is equivalent to a Lasso regression. In contrast, if $\alpha = 1$, it is equivalent to a Ridge regression. In our document, for each model, the optimal values of $\lambda$ and $\alpha$ were obtained by cross-validation using deviance as a selection criterion.
+
+2) **XGBoost model**: a non parametric model from the machine learning field and widely used in the actuarial industry. However, the interpretation of the parameters is complex and it often works like a black box. Boosting is a meta-algorithm that improves the predictive power of a simpler model (weak learner). It aims to build $B$ models sequentially: the model $B$ depends on the model $(B-1)$, which depends on the model $(B-2)$, etc. Each new model is built specifically to improve the predictions made by the previous model. In particular, XGBoost, for *eXtreme Gradient Boosting*, is an open-source software library that provides a regularizing gradient boosting framework. In this report, we use this mete-algorithm with trees as wear learner.
